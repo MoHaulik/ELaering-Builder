@@ -565,6 +565,7 @@ function sanitizeProject(p){
       t.x = num(t.x, 50, 0, 100); t.y = num(t.y, 50, 0, 100); t.scale = num(t.scale, 1, 0.1, 5);
       t.time = num(t.time, 0, 0, 3600); t.duration = num(t.duration, 3, 0, 3600);
       t.color = safeColor(t.color, '#ffffff'); t.textColor = safeColor(t.textColor, '#000000');
+      t.bgAlpha = num(t.bgAlpha, 90, 10, 100);
       if (t.fontSize !== undefined) t.fontSize = num(t.fontSize, 32, 10, 200);
       if (t.fontWeight !== undefined) t.fontWeight = safeWeight(t.fontWeight);
       if (t.align !== undefined) t.align = safeAlign(t.align);
@@ -1599,6 +1600,14 @@ var App = {
           <div class="f-field"><label>Align</label><select onchange="App.updateOverlay('text',${i},'align',this.value)"><option value="center"${(t.align||'center')==='center'?' selected':''}>Center</option><option value="left"${(t.align||'center')==='left'?' selected':''}>Left</option><option value="right"${(t.align||'center')==='right'?' selected':''}>Right</option></select></div>
         </div>
         <div class="f-row">
+          <!-- Spec ID:01_14A: overlay must be semi-transparent. A plain
+               <input type=color> has no alpha channel at all, so a background
+               color could only ever come out fully opaque — this slider is the
+               actual control that makes "semi-transparent" a real, author-
+               settable thing rather than an unreachable default. -->
+          <div class="f-slider grow"><div class="lb"><span>Background opacity</span><span data-echo>${t.bgAlpha!==undefined?t.bgAlpha:90}%</span></div><input type="range" min="10" max="100" step="5" value="${t.bgAlpha!==undefined?t.bgAlpha:90}" oninput="this.previousElementSibling.querySelector('[data-echo]').textContent=this.value+'%'" onchange="App.updateOverlay('text',${i},'bgAlpha',this.value)"></div>
+        </div>
+        <div class="f-row">
           <div class="f-slider"><div class="lb"><span>Pos X</span><span data-echo>${t.x!==undefined?t.x:50}</span></div><input type="range" min="0" max="100" value="${t.x!==undefined?t.x:50}" oninput="this.previousElementSibling.querySelector('[data-echo]').textContent=this.value" onchange="App.updateOverlay('text',${i},'x',this.value)"></div>
           <div class="f-slider"><div class="lb"><span>Pos Y</span><span data-echo>${t.y!==undefined?t.y:50}</span></div><input type="range" min="0" max="100" value="${t.y!==undefined?t.y:50}" oninput="this.previousElementSibling.querySelector('[data-echo]').textContent=this.value" onchange="App.updateOverlay('text',${i},'y',this.value)"></div>
           <div class="f-slider"><div class="lb"><span>Size</span><span data-echo>${t.scale!==undefined?t.scale:1}</span></div><input type="range" min="0.5" max="3" step="0.1" value="${t.scale!==undefined?t.scale:1}" oninput="this.previousElementSibling.querySelector('[data-echo]').textContent=this.value" onchange="App.updateOverlay('text',${i},'scale',this.value)"></div>
@@ -1721,7 +1730,7 @@ var App = {
     if (!this.selectedNode) return;
     if (type === 'image') { /* handled via file picker */ return; }
     if (!this.selectedNode.textOverlays) this.selectedNode.textOverlays = [];
-    this.selectedNode.textOverlays.push({ time:0, duration:3, text:'', color:'#ffffff', textColor:'#000000', x:50, y:50, scale:1.0 });
+    this.selectedNode.textOverlays.push({ time:0, duration:3, text:'', color:'#ffffff', textColor:'#000000', bgAlpha:90, x:50, y:50, scale:1.0 });
     this.createNodeElement(this.selectedNode);
     this.refreshOpenEditor();
     this.saveState();
@@ -1729,7 +1738,7 @@ var App = {
   updateOverlay: function(type, idx, prop, value){
     var list = type === 'image' ? this.selectedNode.imageOverlays : this.selectedNode.textOverlays;
     if (!list || !list[idx]) return;
-    if (['time','duration','x','y','scale','fontSize'].indexOf(prop) !== -1) value = parseFloat(value) || 0;
+    if (['time','duration','x','y','scale','fontSize','bgAlpha'].indexOf(prop) !== -1) value = parseFloat(value) || 0;
     if (prop === 'color') value = safeColor(value, '#ffffff');
     if (prop === 'textColor') value = safeColor(value, '#000000');
     list[idx][prop] = value;
