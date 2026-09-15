@@ -2043,7 +2043,13 @@ var App = {
     iframe.contentWindow.postMessage({ type: 'lxrPreviewLoad', scenario: scenario, assets: assets }, '*');
   },
   _onPreviewFrameMessage: function(msg){
-    if (msg.type === 'lxrPreviewEnded') { /* no-op — user can close manually */ }
+    // The embedded Player finished a run and reverted to its own raw upload/
+    // setup screen underneath (nothing left to preview at that point) — that
+    // screen must never sit visible inside the Builder (it reads as "you have
+    // to upload your build," which defeats the entire point of previewing
+    // in-place), so close the whole panel rather than leave it showing.
+    // Matches LaerbarXR-Builder's proven handling of this exact message.
+    if (msg.type === 'lxrPreviewEnded') { this.closePreview(); }
   },
   cleanupPreviewTimers: function(){ if (this.previewState && this.previewState.overlayTimer) clearInterval(this.previewState.overlayTimer); },
   closePreview: function(){
