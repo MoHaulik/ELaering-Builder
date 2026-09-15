@@ -1999,12 +1999,30 @@ var App = {
   _sendPreviewLoad: function(node){
     var iframe = document.getElementById('previewPlayerFrame');
     this._previewLoaded = true;
-    var projectData = JSON.parse(JSON.stringify(this.project, function(k,v){ return (k==='fileObj') ? undefined : v; }));
-    // Live blob URLs for preview only — never written to the exported zip.
-    projectData.assets.videos.forEach(function(v, i){ v.__liveUrl = App.project.assets.videos[i] ? App.project.assets.videos[i].url : null; });
-    projectData.assets.images.forEach(function(im, i){ im.__liveUrl = App.project.assets.images[i] ? App.project.assets.images[i].url : null; });
-    (projectData.assets.audio||[]).forEach(function(au, i){ au.__liveUrl = (App.project.assets.audio||[])[i] ? App.project.assets.audio[i].url : null; });
-    iframe.contentWindow.postMessage({ type:'lxrPreviewLoad', project: projectData, startNodeId: node.id, gazeDwellSec: node.gazeDwellSec }, '*');
+
+    // Flat {id, url} list of every currently-attached media blob, so the embedded
+    // Player can resolve real playback — mirrors how a loaded .zip's assetCache
+    // gets populated, just skipping the zip round-trip. A blob: URL is usable by
+    // any document sharing the Builder's origin (see the matching comment in
+    // ELaering-Player's own lxrPreviewLoad handler), so sharing the URL string is
+    // enough — no need to transfer the underlying File/Blob itself.
+    var assets = [];
+    (this.project.assets.videos || []).forEach(function(v){ if (v.url) assets.push({ id: v.id, url: v.url }); });
+    (this.project.assets.images || []).forEach(function(im){ if (im.url) assets.push({ id: im.id, url: im.url }); });
+    (this.project.assets.audio || []).forEach(function(au){ if (au.url) assets.push({ id: au.id, url: au.url }); });
+
+    // JSON-safe scenario, same shape sanitizeProject()/export produces — the
+    // Player reads projection/stereo/etc. off scenario.assets.videos, while real
+    // bytes come from the separate `assets` list above via assetCache. This was
+    // previously sent as `project`/`startNodeId` fields the Player's own
+    // lxrPreviewLoad handler never actually reads (it reads `scenario`/`assets`),
+    // so the embedded preview silently never loaded anything — this is the fix.
+    var scenario = JSON.parse(JSON.stringify(this.project, function(k, v){
+      return (k === 'fileObj' || k === 'thumb' || k === 'url') ? undefined : v;
+    }));
+    scenario.startNode = node.id; // preview always begins at whichever node the author is looking at
+
+    iframe.contentWindow.postMessage({ type: 'lxrPreviewLoad', scenario: scenario, assets: assets }, '*');
   },
   _onPreviewFrameMessage: function(msg){
     if (msg.type === 'lxrPreviewEnded') { /* no-op — user can close manually */ }
