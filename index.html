@@ -125,6 +125,19 @@ svg#connections{position:absolute;inset:0;width:100%;height:100%;pointer-events:
   background:var(--green);color:#fff;font-size:9px;font-weight:700;letter-spacing:.5px;
   padding:3px 8px;border-radius:20px;z-index:2;box-shadow:var(--shadow-sm);
 }
+/* Hover/selected-only delete affordance, directly on the node — the sheet's own
+   Delete button existed but was three scrolls deep, which read as "there's no way
+   to delete a node" to anyone who didn't dig for it. This puts it one click away,
+   in the same top-corner-badge language the START/projection badges already use. */
+.node-delete{
+  position:absolute;top:-9px;right:-9px;width:26px;height:26px;border-radius:50%;z-index:3;
+  background:var(--surface);border:1px solid var(--border-soft);color:var(--red);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;
+  opacity:0;transform:scale(.85);transition:opacity .15s,transform .15s,background .15s,color .15s;
+  box-shadow:var(--shadow-sm);
+}
+.node:hover .node-delete,.node.selected .node-delete{opacity:1;transform:scale(1)}
+.node-delete:hover{background:var(--red);color:#fff;border-color:var(--red)}
 .node-icons{position:absolute;left:8px;bottom:8px;display:flex;gap:4px}
 .node-icons .icon-chip{
   width:20px;height:20px;border-radius:6px;background:rgba(0,0,0,.55);
@@ -664,7 +677,13 @@ var App = {
     this.wireChrome();
 
     document.addEventListener('keydown', function(e){
-      if (e.key === 'Delete' && self.selectedNode && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+      // Backspace alongside Delete: a MacBook's built-in keyboard has no forward-delete
+      // key at all — the key labelled "delete" sends Backspace, not Delete. Listening
+      // for only 'Delete' silently does nothing on that hardware, which is exactly the
+      // "you cannot delete a node" report — there was no error, the shortcut just never
+      // matched. e.target guard keeps text inputs (project title, field editors) typable.
+      if ((e.key === 'Delete' || e.key === 'Backspace') && self.selectedNode && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+        e.preventDefault();
         self.deleteNode();
       }
       if (e.key === 'Escape') { self.closeSheet(); self.closeProjMenu(); self.closeSettingsPop(); }
@@ -991,13 +1010,23 @@ var App = {
       var iconsRow = icons.length ? '<div class="node-icons">' + icons.map(function(i){ return '<span class="icon-chip">' + i + '</span>'; }).join('') + '</div>' : '';
       body = thumb + '<div class="node-scrim"></div>' + projBadge + iconsRow;
     }
-    el.innerHTML = badge + '<div class="node-circle">' + body + '</div>' +
+    var deleteBtn = '<button type="button" class="node-delete" title="Delete scene" aria-label="Delete scene">' + icon('trash', 13) + '</button>';
+    el.innerHTML = badge + deleteBtn + '<div class="node-circle">' + body + '</div>' +
       '<div class="node-title">' + esc(node.title) + '</div>' +
       '<div class="node-type">' + node.type.toUpperCase() + '</div>';
 
     var self = this;
     el.addEventListener('mousedown', function(e){ self.startDrag(e, node); });
     el.addEventListener('click', function(e){ e.stopPropagation(); self.openScene(node); });
+    var delBtn = el.querySelector('.node-delete');
+    // stopPropagation on mousedown too — otherwise the node's own mousedown handler
+    // (above) fires first and starts a drag before the click ever gets to us.
+    delBtn.addEventListener('mousedown', function(e){ e.stopPropagation(); });
+    delBtn.addEventListener('click', function(e){
+      e.stopPropagation();
+      self.selectedNode = node;
+      self.deleteNode();
+    });
     document.getElementById('canvas').appendChild(el);
   },
   thumbGradient: function(id){
@@ -1732,6 +1761,11 @@ var App = {
   },
   deleteNode: function(){
     if (!this.selectedNode) return;
+    // Confirmed once, here, so every entry point (sheet button, keyboard shortcut,
+    // the on-node delete icon) is guarded the same way — this is destructive and
+    // cascades to every connection pointing at the node, so a single stray click
+    // or keystroke should never be enough to lose it.
+    if (!confirm('Delete "' + (this.selectedNode.title || 'this scene') + '"? Any branches or waypoints pointing to it will be unlinked.')) return;
     var id = this.selectedNode.id;
     this.project.nodes = this.project.nodes.filter(function(n){ return n.id !== id; });
     this.project.nodes.forEach(function(n){
