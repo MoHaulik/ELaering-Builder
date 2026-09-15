@@ -408,7 +408,7 @@ svg#connections{position:absolute;inset:0;width:100%;height:100%;pointer-events:
 <body>
 
 <header>
-  <button class="proj-name" id="projNameBtn"><span id="projNameLabel">My 360° Scenario</span><span class="car">▾</span></button>
+  <button class="proj-name" id="projNameBtn"><span id="projNameLabel">Immersive Learning</span><span class="car">▾</span></button>
   <div class="top-actions">
     <button class="icon-btn" id="loadBtn" title="Open a saved project (.lxr/.zip)"></button>
     <button class="icon-btn" data-ic="undo" id="undoBtn" title="Undo"></button>
@@ -764,7 +764,7 @@ var App = {
       } catch(e){}
     }
     if (!this.projects.length) {
-      var p = this.newProject('My 360° Scenario');
+      var p = this.newProject('Immersive Learning');
       var id = 'p' + Date.now();
       this.projects = [{ id: id, title: p.title, project: p }];
       this.activeProjectId = id;
