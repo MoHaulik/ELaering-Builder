@@ -468,8 +468,8 @@ svg#connections{position:absolute;inset:0;width:100%;height:100%;pointer-events:
 <div class="modal-back" id="codeModal">
   <div class="modal-box">
     <h3></h3>
-    <div class="sub">Learners must enter this code on the headset before a scenario starts — replaces a dashboard/instructor start command entirely (this platform has no dashboard).</div>
-    <input type="text" id="codeInput" placeholder="e.g. 4821 (leave blank = no code needed)" maxlength="12">
+    <div class="sub">Locks this build, not the Builder — bakes a 4-digit code into the exported .zip. Anyone opening it (headset or computer) has to enter it before the scenario plays. Leave blank and it just plays, no code screen at all — useful for a module you don't want watched by accident.</div>
+    <input type="text" id="codeInput" inputmode="numeric" placeholder="e.g. 4821 (leave blank = no code needed)" maxlength="4">
     <div class="btn-row"><button class="btn secondary" id="codeCancel">Cancel</button><button class="btn" id="codeSave">Save</button></div>
   </div>
 </div>
@@ -545,6 +545,11 @@ function safeZipPath(p, prefix){
 }
 function sanitizeProject(p){
   if (!p || typeof p !== 'object' || !Array.isArray(p.nodes)) return;
+  // A 4-digit PIN, not an open passphrase — a learner enters this on a headset
+  // with no real keyboard. Clamped here too (not just on save in the modal) so
+  // a project loaded from an older export, before this was enforced, still
+  // gets a valid code rather than a stale longer one nothing can type.
+  p.accessCode = typeof p.accessCode === 'string' ? p.accessCode.replace(/\D/g, '').slice(0, 4) : '';
   p.nodes.forEach(function(node){
     node.x = num(node.x, 0, -100000, 100000);
     node.y = num(node.y, 0, -100000, 100000);
@@ -900,8 +905,13 @@ var App = {
     };
     document.getElementById('codeBtn').onclick = function(){ self.openCodeModal(); };
     document.getElementById('codeCancel').onclick = function(){ document.getElementById('codeModal').classList.remove('show'); };
+    // Digits only, capped at 4 — a real PIN pad a learner can enter on a headset
+    // with no keyboard, not an open-ended passphrase field.
+    document.getElementById('codeInput').addEventListener('input', function(e){
+      e.target.value = e.target.value.replace(/\D/g, '').slice(0, 4);
+    });
     document.getElementById('codeSave').onclick = function(){
-      self.project.accessCode = document.getElementById('codeInput').value.trim();
+      self.project.accessCode = document.getElementById('codeInput').value.replace(/\D/g, '').slice(0, 4);
       document.getElementById('codeModal').classList.remove('show');
       self.saveState();
       self.showStatus(self.project.accessCode ? 'Access code set' : 'Access code cleared — scenario starts freely');
