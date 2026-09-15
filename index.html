@@ -91,10 +91,18 @@ header *{pointer-events:auto}
 /* ---------- canvas ---------- */
 .canvas-wrap{position:absolute;inset:0;overflow:hidden}
 .canvas-wrap.panning{cursor:grabbing}
+/* Fills the viewport exactly (never a fixed world-space box, so there's nothing
+   for the pattern to visibly run out of) and stays UNTRANSFORMED — its own
+   background-position/-size are recomputed in applyView() from the same pan/zoom
+   the canvas content uses, so the dots stay locked to world space and read as
+   an infinite grid in every direction, at any zoom level, instead of a finite
+   tile that ends. */
+#canvasGrid{
+  position:absolute;inset:0;pointer-events:none;
+  background-image:radial-gradient(circle, var(--canvas-dot) 1.5px, transparent 1.5px);
+}
 #canvas{
   position:absolute;left:0;top:0;transform-origin:0 0;
-  background-image:radial-gradient(circle, var(--canvas-dot) 1.5px, transparent 1.5px);
-  background-size:26px 26px;width:6000px;height:4000px;
 }
 svg#connections{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
 .connection{fill:none;stroke-width:2.5}
@@ -414,6 +422,7 @@ svg#connections{position:absolute;inset:0;width:100%;height:100%;pointer-events:
 <div class="hint" id="hint">Tap a scene to edit it</div>
 
 <div class="canvas-wrap">
+  <div id="canvasGrid"></div>
   <div id="canvas">
     <svg id="connections"></svg>
   </div>
@@ -1098,6 +1107,15 @@ var App = {
   applyView: function(){
     document.getElementById('canvas').style.transform = 'translate(' + this.view.x + 'px,' + this.view.y + 'px) scale(' + this.view.scale + ')';
     document.getElementById('zoomPill').textContent = Math.round(this.view.scale * 100) + '%';
+    // #canvasGrid is a plain, untransformed, viewport-filling layer — CSS
+    // background-position tiles infinitely in every direction on its own, so
+    // offsetting it by the same pan (view.x/y) and scaling the dot spacing by
+    // the same zoom (view.scale) keeps the dots locked to world space with
+    // nothing for the pattern to ever visibly run out of.
+    var dot = 26 * this.view.scale;
+    var grid = document.getElementById('canvasGrid');
+    grid.style.backgroundSize = dot + 'px ' + dot + 'px';
+    grid.style.backgroundPosition = this.view.x + 'px ' + this.view.y + 'px';
   },
   zoomAt: function(factor, px, py){
     var old = this.view.scale, next = Math.min(2.5, Math.max(0.2, old * factor));
