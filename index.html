@@ -480,6 +480,15 @@ svg#connections{position:absolute;inset:0;width:100%;height:100%;pointer-events:
   </div>
 </div>
 
+<div class="modal-back" id="renameProjectModal">
+  <div class="modal-box">
+    <h3></h3>
+    <div class="sub">Renames the project you're currently working in.</div>
+    <input type="text" id="renameProjectInput" placeholder="Project name" maxlength="60">
+    <div class="btn-row"><button class="btn secondary" id="renameProjectCancel">Cancel</button><button class="btn" id="renameProjectSave">Save</button></div>
+  </div>
+</div>
+
 <div class="modal-back" id="newProjectModal">
   <div class="modal-box">
     <h3></h3>
@@ -865,6 +874,7 @@ var App = {
       var title = active ? self.project.title : p.project.title;
       html += '<div class="proj-menu-item' + (active ? ' active' : '') + '" onclick="App.switchProject(\'' + p.id + '\')">' +
         '<span class="dot"></span><span class="lb">' + esc(title) + '</span>' +
+        (active ? '<button class="rm" onclick="App.openRenameProjectModal(event)" title="Rename this project">' + icon('edit', 12) + '</button>' : '') +
         '<button class="rm" onclick="App.removeProject(\'' + p.id + '\', event)" title="Remove from switcher">' + icon('x', 12) + '</button>' +
         '</div>';
     });
@@ -885,6 +895,19 @@ var App = {
     this.project.title = title;
     document.getElementById('projNameLabel').textContent = title;
     this.persistProjects();
+  },
+  // renameActiveProject() above already existed and was fully correct — it just
+  // had no UI entry point anywhere at all, the same gap as end-screen creation.
+  openRenameProjectModal: function(ev){
+    if (ev) ev.stopPropagation();
+    this.closeProjMenu();
+    document.getElementById('renameProjectModal').querySelector('h3').innerHTML = icon('edit', 15) + ' Rename project';
+    document.getElementById('renameProjectInput').value = this.project.title;
+    document.getElementById('renameProjectModal').classList.add('show');
+    setTimeout(function(){
+      var inp = document.getElementById('renameProjectInput');
+      inp.focus(); inp.select();
+    }, 50);
   },
 
   // -------------------------------------------------------- chrome wiring --
@@ -947,6 +970,14 @@ var App = {
       if (v && v.trim()) self.createProject(v.trim());
     };
     document.getElementById('newProjectInput').addEventListener('keydown', function(e){ if (e.key === 'Enter') document.getElementById('newProjectCreate').click(); });
+
+    document.getElementById('renameProjectCancel').onclick = function(){ document.getElementById('renameProjectModal').classList.remove('show'); };
+    document.getElementById('renameProjectSave').onclick = function(){
+      var v = document.getElementById('renameProjectInput').value;
+      document.getElementById('renameProjectModal').classList.remove('show');
+      if (v && v.trim()) { self.renameActiveProject(v.trim()); self.renderProjMenu(); }
+    };
+    document.getElementById('renameProjectInput').addEventListener('keydown', function(e){ if (e.key === 'Enter') document.getElementById('renameProjectSave').click(); });
 
     document.getElementById('exportCancel').onclick = function(){ document.getElementById('exportModal').classList.remove('show'); };
     document.getElementById('exportGo').onclick = function(){ self.runExport(); };
