@@ -789,11 +789,17 @@ var App = {
   persistProjects: function(){
     // Structural save only (positions/timings/text/choices) — matches the
     // existing autosave's own no-binaries rule; File blobs never survive a
-    // reload regardless of where they're stored.
+    // reload regardless of where they're stored. `thumb` is NOT one of those —
+    // it's a small JPEG data: URL string, already JSON-safe, no different from
+    // any other text field. Stripping it here meant every video thumbnail (on
+    // the canvas node AND in the open Scene editor) silently reverted to the
+    // generic gradient placeholder on every reload, even though nothing
+    // technically prevented it from surviving — found while explicitly testing
+    // thumbnail persistence, not incidentally.
     try {
       var light = this.projects.map(function(p){
         var clean = JSON.parse(JSON.stringify(p.project, function(k, v){
-          return (k === 'fileObj' || k === 'thumb' || k === 'url') ? undefined : v;
+          return (k === 'fileObj' || k === 'url') ? undefined : v;
         }));
         return { id: p.id, title: p.project.title, project: clean };
       });
@@ -951,8 +957,11 @@ var App = {
   // ---------------------------------------------------- undo & autosave ----
   saveState: function(){
     if (this.isUndoing) return;
+    // thumb kept (see the matching note in persistProjects) — an undo snapshot
+    // should show the right thumbnail immediately, not the gradient
+    // placeholder until generateThumb() happens to re-run.
     var snap = JSON.parse(JSON.stringify(this.project, function(k, v){
-      return (k === 'fileObj' || k === 'thumb' || k === 'url') ? undefined : v;
+      return (k === 'fileObj' || k === 'url') ? undefined : v;
     }));
     this.history = this.history.slice(0, this.historyIndex + 1);
     this.history.push(snap);
@@ -1297,6 +1306,14 @@ var App = {
       a.thumb = thumb;
       self.createNodeElement(node);
       if (self.selectedNode === node) self.renderScenePreview(node);
+      // The thumb resolves asynchronously, well after the saveState() above
+      // already snapshotted this asset with thumb:null — without a second
+      // save here, the freshly-generated thumbnail only reaches localStorage
+      // "by accident," if some unrelated later edit happens to autosave again.
+      // Reloading the Builder right after attaching a video (a completely
+      // normal thing to do) reverted every thumbnail to the gradient
+      // placeholder even though the video itself loaded back in fine.
+      self.saveState();
     });
     this.showStatus('Video attached');
   },
@@ -1397,6 +1414,10 @@ var App = {
           v.thumb = t;
           self.project.nodes.forEach(function(n){ if (n.video === assetId) self.createNodeElement(n); });
           if (self.selectedNode && self.selectedNode.video === assetId) self.renderScenePreview(self.selectedNode);
+          // Same reasoning as handleVideoPick: this resolves after the
+          // saveState() below already ran, so the regenerated thumbnail needs
+          // its own save or it never reaches localStorage.
+          self.saveState();
         });
         self.saveState();
         self.showStatus('Compressed: ' + newName);
