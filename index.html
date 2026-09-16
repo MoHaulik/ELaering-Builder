@@ -433,10 +433,16 @@ svg#connections{position:absolute;inset:0;width:100%;height:100%;pointer-events:
   <button class="dock-btn" data-ic="minus" id="zoomOutBtn" title="Zoom out"></button>
   <button class="dock-btn" data-ic="expand" id="fitBtn" title="Fit to screen"></button>
   <div class="dock-sep"></div>
-  <button class="dock-btn primary" data-ic="plus" id="addSceneBtn" title="Add scene"></button>
+  <button class="dock-btn primary" data-ic="plus" id="addSceneBtn" title="Add to canvas"></button>
   <div class="dock-sep"></div>
   <button class="dock-btn" data-ic="lock" id="codeBtn" title="Access code"></button>
   <button class="dock-btn" data-ic="gear" id="settingsBtn" title="Settings"></button>
+</div>
+
+<div class="pop" id="addMenuPop" style="bottom:88px">
+  <h4>Add to canvas</h4>
+  <div class="proj-menu-item" id="addVideoSceneItem"><span data-ic="video" style="display:flex"></span><span class="lb">Video scene</span></div>
+  <div class="proj-menu-item" id="addEndScreenItem"><span data-ic="flagEnd" style="display:flex"></span><span class="lb">End screen</span></div>
 </div>
 
 <div class="pop" id="settingsPop">
@@ -701,7 +707,7 @@ var App = {
         e.preventDefault();
         self.deleteNode();
       }
-      if (e.key === 'Escape') { self.closeSheet(); self.closeProjMenu(); self.closeSettingsPop(); }
+      if (e.key === 'Escape') { self.closeSheet(); self.closeProjMenu(); self.closeSettingsPop(); document.getElementById('addMenuPop').classList.remove('show'); }
     });
 
     this.renderCanvas();
@@ -888,6 +894,7 @@ var App = {
     document.addEventListener('click', function(e){
       if (!e.target.closest('#projMenu') && !e.target.closest('#projNameBtn')) self.closeProjMenu();
       if (!e.target.closest('#settingsPop') && !e.target.closest('#settingsBtn')) self.closeSettingsPop();
+      if (!e.target.closest('#addMenuPop') && !e.target.closest('#addSceneBtn')) document.getElementById('addMenuPop').classList.remove('show');
     });
 
     document.getElementById('undoBtn').onclick = function(){ self.undo(); };
@@ -898,12 +905,22 @@ var App = {
 
     document.getElementById('zoomOutBtn').onclick = function(){ self.zoomBy(1/1.2); };
     document.getElementById('fitBtn').onclick = function(){ self.fitView(); };
+    // "+" opens a small type-picker rather than always creating a video scene —
+    // there was previously NO way to create an end-screen node from the UI at
+    // all (the type exists throughout the data model and renders/plays
+    // correctly, it just had no creation affordance anywhere — a real
+    // launch-blocking gap, not a cosmetic one, since a branching scenario
+    // can't actually terminate without one).
     document.getElementById('addSceneBtn').onclick = function(){
-      var wrap = document.querySelector('.canvas-wrap');
-      var cx = (wrap.clientWidth / 2 - self.view.x) / self.view.scale;
-      var cy = (wrap.clientHeight / 2 - self.view.y) / self.view.scale;
-      var n = self.addNode('video', Math.max(0, cx - 70 + (Math.random()*100-50)), Math.max(0, cy - 70 + (Math.random()*80-40)));
-      self.openScene(n);
+      document.getElementById('addMenuPop').classList.toggle('show');
+    };
+    document.getElementById('addVideoSceneItem').onclick = function(){
+      document.getElementById('addMenuPop').classList.remove('show');
+      self.addNodeAtCenter('video');
+    };
+    document.getElementById('addEndScreenItem').onclick = function(){
+      document.getElementById('addMenuPop').classList.remove('show');
+      self.addNodeAtCenter('end');
     };
 
     document.getElementById('settingsBtn').onclick = function(){
@@ -1001,6 +1018,16 @@ var App = {
     this.createNodeElement(n);
     this.updateConnections();
     this.saveState();
+    return n;
+  },
+  // Shared by both "+" menu items — centers the new node in the current
+  // viewport the same way the old single-purpose addSceneBtn handler did.
+  addNodeAtCenter: function(type){
+    var wrap = document.querySelector('.canvas-wrap');
+    var cx = (wrap.clientWidth / 2 - this.view.x) / this.view.scale;
+    var cy = (wrap.clientHeight / 2 - this.view.y) / this.view.scale;
+    var n = this.addNode(type, Math.max(0, cx - 70 + (Math.random()*100-50)), Math.max(0, cy - 70 + (Math.random()*80-40)));
+    this.openScene(n);
     return n;
   },
   renderCanvas: function(){
