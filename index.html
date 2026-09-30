@@ -868,9 +868,13 @@ var ELEMENT_TYPES = {
   question: { label:'Question', icon:'question', endAllowed:false, single:true  },
 };
 
-var PLAYER_PREVIEW_URL = '../ELaering-Player/index.html';
+// ?v= stamp: bump it on every release so the embedded preview can never load
+// an older, cached copy of the Player (browsers — the Quest's especially —
+// cache aggressively).
+var PLAYER_VERSION = '20260930-1';
+var PLAYER_PREVIEW_URL = '../ELaering-Player/index.html?v=' + PLAYER_VERSION;
 // Fallback for a local copy downloaded from GitHub as "ELaering-Player-main".
-var PLAYER_PREVIEW_URL_ALT = '../ELaering-Player-main/index.html';
+var PLAYER_PREVIEW_URL_ALT = '../ELaering-Player-main/index.html?v=' + PLAYER_VERSION;
 
 // ---------------------------------------------------------------------------
 // ---- MediaStore — keeps attached video/image/audio files between sessions ---
