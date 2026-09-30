@@ -20,14 +20,15 @@
   --green:#2ea043;
   --red:#e5484d;
   --canvas-dot:rgba(255,255,255,0.14);
+  --conn:rgba(255,255,255,0.55);
   --shadow-lg:0 24px 60px rgba(0,0,0,0.55);
   --shadow-sm:0 2px 10px rgba(0,0,0,0.35);
 }
 /* Working-background toggle (spec: black/white/grey, personal taste, persisted).
    This is the BUILDER's own canvas backdrop only — chrome (surfaces, text,
    dock) stays constant so the UI itself never loses contrast/legibility. */
-body[data-canvas-bg="white"]{ --bg:#e9e9ec; --canvas-dot:rgba(0,0,0,0.14); }
-body[data-canvas-bg="grey"]{ --bg:#3a3a40; --canvas-dot:rgba(255,255,255,0.16); }
+body[data-canvas-bg="white"]{ --bg:#e9e9ec; --canvas-dot:rgba(0,0,0,0.14); --conn:rgba(0,0,0,0.5); }
+body[data-canvas-bg="grey"]{ --bg:#3a3a40; --canvas-dot:rgba(255,255,255,0.16); --conn:rgba(255,255,255,0.62); }
 html,body{height:100%}
 body{
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
@@ -104,9 +105,17 @@ header *{pointer-events:auto}
 #canvas{
   position:absolute;left:0;top:0;transform-origin:0 0;
 }
-svg#connections{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+/* #canvas has no size of its own (0x0 — it's just a transform origin), so the
+   old width/height:100% gave this SVG a 0x0 box, and Chrome/Safari don't paint
+   an <svg> whose width or height is 0 at all — overflow:visible never gets a
+   chance. That's why connection lines "disappeared". A 1x1 box + overflow
+   visible paints every path at its real world-space coordinates. */
+svg#connections{position:absolute;left:0;top:0;width:1px;height:1px;pointer-events:none;overflow:visible}
 .connection{fill:none;stroke-width:2.5}
-.connection.neutral{stroke:var(--border);stroke-width:2}
+.connection.neutral{stroke:var(--conn);stroke-width:2.4}
+.conn-arrow-neutral{fill:var(--conn)}
+.conn-arrow-correct{fill:var(--green)}
+.conn-arrow-incorrect{fill:var(--red)}
 .connection.correct{stroke:var(--green);stroke-dasharray:7,6;animation:flow 12s linear infinite}
 .connection.incorrect{stroke:var(--red);stroke-dasharray:4,7;animation:flow 15s linear infinite}
 @keyframes flow{to{stroke-dashoffset:-260}}
@@ -214,7 +223,7 @@ svg#connections{position:absolute;inset:0;width:100%;height:100%;pointer-events:
 .scrim.show{opacity:1;pointer-events:auto}
 .sheet{
   position:fixed;left:50%;bottom:0;transform:translate(-50%,110%);
-  width:min(720px,94vw);max-height:88vh;overflow:auto;
+  width:min(880px,96vw);max-height:92vh;overflow:auto;
   background:var(--surface);border:1px solid var(--border-soft);border-bottom:none;
   border-radius:26px 26px 0 0;box-shadow:var(--shadow-lg);padding:18px 20px 26px;z-index:60;
   transition:transform .32s cubic-bezier(.2,.9,.25,1);
@@ -224,7 +233,7 @@ svg#connections{position:absolute;inset:0;width:100%;height:100%;pointer-events:
 
 /* ---------- scene preview: the video, with pins living ON it ---------- */
 .scene-preview{
-  position:relative;width:100%;aspect-ratio:2.2/1;border-radius:16px;overflow:hidden;
+  position:relative;width:100%;aspect-ratio:16/9;max-height:52vh;border-radius:16px;overflow:hidden;
   background:radial-gradient(ellipse at 50% 30%, #2b2b33, #101014 72%);
   border:1px solid var(--border-soft);margin-bottom:14px;
 }
@@ -359,6 +368,13 @@ svg#connections{position:absolute;inset:0;width:100%;height:100%;pointer-events:
 .btn.secondary:hover{background:var(--field-bg)}
 .btn:disabled{opacity:.4;cursor:default}
 .btn-row{display:flex;gap:8px;margin-top:14px}
+/* Icon + label side by side in the smaller in-sheet buttons (the icon used
+   to sit on its own line above the text). */
+.btn.mini{display:flex;align-items:center;justify-content:center;gap:7px;padding:9px 12px;font-size:12.5px}
+.btn-row .btn{display:flex;align-items:center;justify-content:center;gap:6px}
+/* Selects placed directly in a row (e.g. "Default next scene") were unstyled
+   white browser boxes. */
+.editor .f-row > select{background:var(--surface);border:1px solid var(--border-soft);border-radius:9px;color:var(--text);padding:7px 9px;font-size:12.5px;outline:none}
 .btn-row .btn{flex:1}
 
 .hint{
@@ -399,6 +415,115 @@ svg#connections{position:absolute;inset:0;width:100%;height:100%;pointer-events:
 .spinner{width:16px;height:16px;border-radius:50%;border:2px solid var(--border-soft);border-top-color:var(--text);animation:spin .7s linear infinite;flex:none}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+/* Node labels sit directly on the canvas backdrop, so on the White backdrop they
+   need dark ink (they were near-white-on-white). */
+body[data-canvas-bg="white"] .node-title{color:#16161a}
+body[data-canvas-bg="white"] .node-type{color:#5a5a64}
+
+/* ---------- zoom controls in the dock ---------- */
+.zoom-slider{width:96px;accent-color:var(--text);margin:0 2px;cursor:pointer}
+.zoom-pill{pointer-events:auto;cursor:pointer}
+
+/* ---------- missing-media banner + node badge ---------- */
+.media-banner{
+  position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:35;display:none;
+  max-width:min(640px,92vw);background:#2a1d0c;border:1px solid #7a5317;color:#ffd79a;
+  font-size:12.5px;line-height:1.45;padding:9px 14px;border-radius:12px;box-shadow:var(--shadow-sm);
+}
+.media-banner.show{display:block}
+.media-banner b{color:#fff}
+.media-banner button{margin-left:8px;background:#ffd79a;color:#2a1d0c;border:none;border-radius:8px;padding:3px 9px;font-weight:700;font-size:11.5px;cursor:pointer}
+.node-missing{
+  position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:2;
+  background:rgba(229,72,77,.92);color:#fff;font-size:9.5px;font-weight:800;letter-spacing:.3px;
+  padding:4px 8px;border-radius:20px;white-space:nowrap;
+}
+
+/* ---------- scene header (title above the POV preview) ---------- */
+/* The view + its timeline stay pinned at the top of the sheet while you scroll
+   through the editors below, so you can always see what you're placing. */
+.sheet-top{position:sticky;top:-18px;z-index:5;background:var(--surface);margin:0 -20px;padding:0 20px 2px}
+.sheet-top .scene-preview{max-height:42vh}
+.scene-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.scene-head input{background:none;border:none;color:var(--text);font-size:19px;font-weight:700;padding:0;outline:none;flex:1;min-width:0}
+.scene-head .scene-meta{color:var(--muted)}
+
+/* ---------- POV preview (real perspective view of the 360/180 clip) ---------- */
+#povHost{position:absolute;inset:0}
+#povHost canvas{display:block;width:100%;height:100%;cursor:grab;touch-action:none}
+#povHost.dragging canvas{cursor:grabbing}
+#povHost.placing canvas{cursor:crosshair}
+#povMarkers{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.pov-m{position:absolute;left:0;top:0;pointer-events:auto;cursor:move;will-change:transform}
+.pov-m.inactive{opacity:.38}
+.pov-m.hidden{display:none}
+.pov-wp{width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:rgba(255,255,255,.93);
+  border:2px solid rgba(17,24,39,.85);display:flex;align-items:center;justify-content:center;color:#111827;box-shadow:0 0 0 6px rgba(255,255,255,.18)}
+.pov-wp .n{position:absolute;top:-17px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:800;color:#fff;text-shadow:0 1px 3px #000;white-space:nowrap}
+.pov-wp .cap{position:absolute;top:32px;left:50%;transform:translateX(-50%);font-size:10px;font-weight:600;color:#fff;background:rgba(17,24,39,.75);padding:2px 6px;border-radius:6px;white-space:nowrap}
+.pov-txt{transform-origin:0 0;border-radius:6px;overflow:hidden;word-wrap:break-word;white-space:normal}
+.pov-img{transform-origin:0 0;border-radius:3px;box-shadow:0 0 0 1px rgba(255,255,255,.45)}
+.pov-img img,.pov-img video{display:block;width:100%;height:100%;object-fit:contain;pointer-events:none}
+.pov-vid-ph{width:100%;height:100%;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;color:#fff}
+.pov-q{transform-origin:0 0;display:flex;flex-direction:column;align-items:center}
+.pov-q div{border-radius:5px;text-align:center;font-weight:700}
+.pov-start{pointer-events:none;cursor:default;margin-left:-40px;width:80px;text-align:center;font-size:10px;font-weight:800;color:#fff;
+  text-shadow:0 1px 3px #000;letter-spacing:.4px}
+.pov-start:before{content:'';display:block;width:2px;height:16px;background:#2ea043;margin:0 auto 3px;box-shadow:0 0 4px #000}
+.pov-sel{outline:2px solid #fff;outline-offset:3px}
+.pov-hint{position:absolute;left:50%;top:10px;transform:translateX(-50%);background:rgba(0,0,0,.72);color:#fff;font-size:11.5px;font-weight:600;
+  padding:5px 11px;border-radius:20px;pointer-events:none;white-space:nowrap;z-index:3;display:none}
+.pov-hint.show{display:block}
+.pov-drop{position:absolute;inset:0;border:2px dashed #fff;border-radius:16px;background:rgba(255,255,255,.08);display:none;align-items:center;justify-content:center;
+  color:#fff;font-weight:700;font-size:13px;pointer-events:none;z-index:4}
+.pov-drop.show{display:flex}
+.pov-3d-note{position:absolute;left:10px;top:10px;font-size:10px;font-weight:600;color:#fff;background:rgba(0,0,0,.55);padding:3px 8px;border-radius:20px;z-index:2}
+.pov-bar{display:flex;align-items:center;gap:6px;margin:-6px 0 12px;flex-wrap:wrap}
+.pov-bar .pb{height:30px;min-width:30px;padding:0 8px;border-radius:9px;border:1px solid var(--border-soft);background:var(--surface-2);color:var(--text);
+  display:flex;align-items:center;justify-content:center;gap:5px;font-size:11.5px;font-weight:600;cursor:pointer;white-space:nowrap}
+.pov-bar .pb:hover{background:var(--field-bg)}
+.pov-bar .pb.on{background:var(--text);color:var(--accent-text)}
+.pov-time{font-family:ui-monospace,monospace;font-size:11px;color:var(--muted);min-width:92px;text-align:center}
+.pov-scrub{flex:1 1 300px;min-width:140px;accent-color:var(--text);cursor:pointer}
+.pov-bar .sep{width:1px;height:20px;background:var(--border-soft);margin:0 2px}
+.explain{font-size:11px;color:var(--muted);line-height:1.5;margin-top:6px}
+.explain b{color:var(--text);font-weight:600}
+.now-btn{height:30px;align-self:flex-end;border-radius:9px;border:1px solid var(--border-soft);background:var(--surface-2);color:var(--text);font-size:11px;font-weight:600;padding:0 8px;cursor:pointer;white-space:nowrap}
+.now-btn:hover{background:var(--field-bg)}
+
+/* ---------- compress modal ---------- */
+.cmp-presets{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.cmp-preset{display:flex;gap:10px;align-items:flex-start;padding:9px 11px;border:1px solid var(--border-soft);border-radius:10px;background:var(--field-bg);cursor:pointer;font-size:12.5px}
+.cmp-preset.active{border-color:var(--text)}
+.cmp-preset input{margin-top:2px;accent-color:var(--text)}
+.cmp-preset .d{font-size:11px;color:var(--muted);margin-top:2px}
+.progress{height:8px;border-radius:6px;background:var(--field-bg);border:1px solid var(--border-soft);overflow:hidden;margin:10px 0 6px}
+.progress > div{height:100%;width:0;background:var(--text);transition:width .25s linear}
+.cmp-table{width:100%;border-collapse:collapse;font-size:12px;margin:10px 0}
+.cmp-table th,.cmp-table td{padding:6px 8px;border-bottom:1px solid var(--border-soft);text-align:left}
+.cmp-table th{color:var(--muted);font-weight:600}
+.cmp-table td.good{color:var(--green);font-weight:700}
+
+/* ---------- preview panel bar + end card ---------- */
+.pv-bar{display:flex;align-items:center;gap:10px;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border-soft);flex-wrap:wrap}
+.pv-bar .ttl{font-size:14px;font-weight:700;margin-right:auto;display:flex;align-items:center;gap:8px}
+.pv-bar select{background:var(--field-bg);color:var(--text);border:1px solid var(--border-soft);border-radius:9px;padding:7px 9px;font-size:12.5px;max-width:240px}
+.pv-bar label{font-size:12px;color:var(--text);display:flex;align-items:center;gap:6px;cursor:pointer}
+.pv-bar label input{accent-color:var(--text)}
+.pv-bar .btn{padding:8px 13px;font-size:12.5px}
+.pv-end{position:absolute;inset:0;background:rgba(8,8,10,.92);display:none;align-items:center;justify-content:center;z-index:2}
+.pv-end.show{display:flex}
+.pv-end .box{text-align:center}
+.pv-end .box h3{font-size:17px;margin-bottom:6px}
+.pv-end .box p{font-size:12.5px;color:var(--muted);margin-bottom:16px}
+.pv-end .box .btn-row{justify-content:center}
+
+/* ---------- help modal ---------- */
+.help-list{font-size:12.5px;line-height:1.55;color:var(--text);display:flex;flex-direction:column;gap:10px;margin:6px 0 4px}
+.help-list div{background:var(--field-bg);border-radius:10px;padding:10px 12px}
+.help-list b{display:block;margin-bottom:2px}
+.help-list span{color:var(--muted)}
+
 @media (max-width:640px){
   .card-grid{grid-template-columns:repeat(3,1fr)}
   .f-field,.f-slider{min-width:78px}
@@ -410,16 +535,18 @@ svg#connections{position:absolute;inset:0;width:100%;height:100%;pointer-events:
 <header>
   <button class="proj-name" id="projNameBtn"><span id="projNameLabel">Immersive Learning</span><span class="car">▾</span></button>
   <div class="top-actions">
-    <button class="icon-btn" id="loadBtn" title="Open a saved project (.lxr/.zip)"></button>
+    <button class="icon-btn" id="loadBtn" title="Open a project .zip from your computer"></button>
+    <button class="icon-btn" data-ic="help" id="helpBtn" title="Where is my work saved?"></button>
     <button class="icon-btn" data-ic="undo" id="undoBtn" title="Undo"></button>
-    <button class="icon-btn" data-ic="play" id="previewBtn" title="Preview"></button>
-    <button class="icon-btn" data-ic="export" id="exportBtn" title="Export"></button>
+    <button class="icon-btn" data-ic="play" id="previewBtn" title="Preview — starts from the selected scene (or the start scene)"></button>
+    <button class="icon-btn" data-ic="export" id="exportBtn" title="Save / export project .zip"></button>
   </div>
 </header>
 
 <div class="proj-menu" id="projMenu"></div>
 
 <div class="hint" id="hint">Tap a scene to edit it</div>
+<div class="media-banner" id="mediaBanner"></div>
 
 <div class="canvas-wrap">
   <div id="canvasGrid"></div>
@@ -429,8 +556,10 @@ svg#connections{position:absolute;inset:0;width:100%;height:100%;pointer-events:
 </div>
 
 <div class="dock">
-  <div class="zoom-pill" id="zoomPill">100%</div>
+  <div class="zoom-pill" id="zoomPill" title="Reset to 100%">100%</div>
   <button class="dock-btn" data-ic="minus" id="zoomOutBtn" title="Zoom out"></button>
+  <input type="range" class="zoom-slider" id="zoomSlider" min="20" max="250" step="5" value="100" title="Zoom">
+  <button class="dock-btn" data-ic="plus" id="zoomInBtn" title="Zoom in"></button>
   <button class="dock-btn" data-ic="expand" id="fitBtn" title="Fit to screen"></button>
   <div class="dock-sep"></div>
   <button class="dock-btn primary" data-ic="plus" id="addSceneBtn" title="Add to canvas"></button>
@@ -458,14 +587,20 @@ svg#connections{position:absolute;inset:0;width:100%;height:100%;pointer-events:
 
 <div class="sheet" id="sceneSheet">
   <div class="sheet-handle" id="sheetHandle"></div>
+  <div class="sheet-top" id="sheetTop">
+  <div class="scene-head">
+    <input id="sceneTitleInput" value="Scene" title="Scene name">
+    <div class="scene-meta" id="sceneMeta">10s</div>
+  </div>
   <div class="scene-preview" id="scenePreview">
+    <div id="povHost"></div>
+    <div id="povMarkers"></div>
+    <div class="pov-hint" id="povHint"></div>
+    <div class="pov-drop" id="povDrop">Drop image or video here to place it at this spot</div>
     <div class="proj-badge" id="projBadge">360°</div>
     <div id="pinLayer"></div>
-    <div class="scrim-bottom"></div>
-    <div class="scene-title-row">
-      <input id="sceneTitleInput" value="Scene">
-      <div class="scene-meta" id="sceneMeta">10s</div>
-    </div>
+  </div>
+  <div class="pov-bar" id="povBar" style="display:none"></div>
   </div>
   <div class="card-grid" id="cardGrid"></div>
   <div id="editorSlot"></div>
@@ -510,19 +645,40 @@ svg#connections{position:absolute;inset:0;width:100%;height:100%;pointer-events:
 
 <input type="file" id="videoFileInput" accept="video/*" style="display:none">
 <input type="file" id="audioFileInput" accept="audio/*" style="display:none">
-<input type="file" id="imageFileInput" accept="image/*" style="display:none">
+<input type="file" id="imageFileInput" accept="image/*,video/*" multiple style="display:none">
+<input type="file" id="relinkFileInput" style="display:none">
 <input type="file" id="loaderInput" accept=".lxr,.zip" style="display:none">
 
 <div class="status-toast" id="statusToast"></div>
 
-<!-- ============ PREVIEW MODAL (embeds the real Afspiller, unchanged approach) ============ -->
+<div class="modal-back" id="compressModal">
+  <div class="modal-box" style="max-width:460px">
+    <h3></h3>
+    <div id="compressBody"></div>
+  </div>
+</div>
+
+<div class="modal-back" id="helpModal">
+  <div class="modal-box" style="max-width:500px">
+    <h3></h3>
+    <div class="help-list" id="helpBody"></div>
+    <div class="btn-row"><button class="btn" id="helpClose">Got it</button></div>
+  </div>
+</div>
+
+<!-- ============ PREVIEW MODAL (embeds the real Player, unchanged approach) ============ -->
 <div id="previewModal" style="display:none;position:fixed;inset:0;background:rgba(4,4,6,.75);z-index:90;flex-direction:column;">
-  <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:var(--surface);border-bottom:1px solid var(--border-soft)">
-    <div style="font-size:14px;font-weight:700;display:flex;align-items:center;gap:10px;" id="previewTitle">Preview</div>
+  <div class="pv-bar">
+    <div class="ttl" id="previewTitle">Preview</div>
+    <label title="Which scene the preview is showing — pick another to jump straight to it">Scene <select id="previewSceneSelect"></select></label>
+    <label title="Stop when this scene ends instead of continuing to the next one"><input type="checkbox" id="previewSingleChk"> This scene only</label>
+    <button class="btn secondary" id="previewRestartBtn">Restart</button>
     <button class="btn secondary" id="previewCloseBtn">Close</button>
   </div>
   <div style="flex:1;position:relative;background:#000;">
-    <iframe id="previewPlayerFrame" title="Live preview" style="width:100%;height:100%;border:0;display:block;" allow="autoplay"></iframe>
+    <iframe id="previewPlayerFrame" title="Live preview" style="width:100%;height:100%;border:0;display:block;" allow="autoplay; fullscreen"></iframe>
+    <div class="pv-end" id="previewEnd"><div class="box"><h3>Preview finished</h3><p id="previewEndText">The scenario reached its end.</p>
+      <div class="btn-row"><button class="btn secondary" id="previewReplayBtn">Play again</button><button class="btn" id="previewEndCloseBtn">Close preview</button></div></div></div>
   </div>
 </div>
 
@@ -550,6 +706,11 @@ function safeColor(v, def){
   if (/^rgba?\(\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\d.]+\s*(,\s*[\d.]+\s*)?\)$/.test(s)) return s;
   return def;
 }
+function fmtTime(t, short){
+  t = Math.max(0, parseFloat(t) || 0);
+  var m = Math.floor(t / 60), sec = t - m * 60;
+  return m + ':' + (sec < 10 ? '0' : '') + (short ? Math.floor(sec) : sec.toFixed(1));
+}
 function safeWeight(v){ return (v === 'bold' || v === '600' || v === '700') ? v : 'normal'; }
 function safeAlign(v){ return (v === 'left' || v === 'right') ? v : 'center'; }
 function safeZipPath(p, prefix){
@@ -558,6 +719,28 @@ function safeZipPath(p, prefix){
   if (s.charAt(0) === '/' || s.indexOf('..') !== -1) return null;
   return s.indexOf(prefix) === 0 ? s : null;
 }
+// ---- Placement angles -------------------------------------------------------
+// Overlays, waypoints and the question used to be placed with Pos X / Pos Y
+// (0-100) which the Player maps onto a small forward window (±45° across,
+// ±25° up/down). That made it impossible to put a waypoint behind the viewer or
+// down on the floor. Placement is now stored as real view angles — yaw (degrees
+// left/right, -180..180) and pitch (degrees up/down) — which is what the POV
+// preview drags and what the Player reads first. Old x/y values convert 1:1
+// into the exact same spot, and x/y are still written alongside (clamped) so an
+// older Player keeps working.
+function wrapYaw(d){ d = parseFloat(d); if (!isFinite(d)) d = 0; return ((d + 180) % 360 + 360) % 360 - 180; }
+function xToYaw(x){ return (num(x, 50) - 50) * 0.9; }
+function yToPitch(y){ return (50 - num(y, 50)) * 0.5; }
+function yawToX(yaw){ return Math.round(Math.max(0, Math.min(100, 50 + yaw / 0.9)) * 10) / 10; }
+function pitchToY(p){ return Math.round(Math.max(0, Math.min(100, 50 - p / 0.5)) * 10) / 10; }
+function ensureAngles(o, pitchMin, pitchMax){
+  if (!isFinite(parseFloat(o.yaw))) o.yaw = xToYaw(o.x);
+  if (!isFinite(parseFloat(o.pitch))) o.pitch = yToPitch(o.y);
+  o.yaw = Math.round(wrapYaw(o.yaw) * 10) / 10;
+  o.pitch = Math.round(num(o.pitch, 0, pitchMin, pitchMax) * 10) / 10;
+}
+var Q_PITCH_MIN = -15, Q_PITCH_MAX = 25; // keeps the answer stack clear of the in-VR exit button
+
 function sanitizeProject(p){
   if (!p || typeof p !== 'object' || !Array.isArray(p.nodes)) return;
   // A 4-digit PIN, not an open passphrase — a learner enters this on a headset
@@ -576,6 +759,12 @@ function sanitizeProject(p){
     node.fadeIn = num(node.fadeIn, 0, 0, 10);
     node.fadeOut = num(node.fadeOut, 0, 0, 10);
     node.startYaw = num(node.startYaw, 0, 0, 359);
+    node.trimStart = num(node.trimStart, 0, 0, 36000);
+    node.trimEnd = num(node.trimEnd, 0, 0, 36000);
+    if (!isFinite(parseFloat(node.questionYaw))) node.questionYaw = xToYaw(node.questionX || 50);
+    if (!isFinite(parseFloat(node.questionPitch))) node.questionPitch = yToPitch(Math.min(node.questionY !== undefined ? node.questionY : 50, 80));
+    node.questionYaw = wrapYaw(node.questionYaw);
+    node.questionPitch = num(node.questionPitch, 0, Q_PITCH_MIN, Q_PITCH_MAX);
     if (node.gazeDwellSec !== undefined && node.gazeDwellSec !== null && node.gazeDwellSec !== '')
       node.gazeDwellSec = num(node.gazeDwellSec, 2, 0.5, 10);
     if (node.questionFontSize !== undefined) node.questionFontSize = num(node.questionFontSize, 50, 10, 200);
@@ -586,6 +775,7 @@ function sanitizeProject(p){
       t.time = num(t.time, 0, 0, 3600); t.duration = num(t.duration, 3, 0, 3600);
       t.color = safeColor(t.color, '#ffffff'); t.textColor = safeColor(t.textColor, '#000000');
       t.bgAlpha = num(t.bgAlpha, 90, 10, 100);
+      ensureAngles(t, -85, 85);
       if (t.fontSize !== undefined) t.fontSize = num(t.fontSize, 32, 10, 200);
       if (t.fontWeight !== undefined) t.fontWeight = safeWeight(t.fontWeight);
       if (t.align !== undefined) t.align = safeAlign(t.align);
@@ -593,6 +783,8 @@ function sanitizeProject(p){
     (node.imageOverlays || []).forEach(function(io){
       io.x = num(io.x, 50, 0, 100); io.y = num(io.y, 50, 0, 100); io.scale = num(io.scale, 1, 0.1, 5);
       io.time = num(io.time, 0, 0, 3600); io.duration = num(io.duration, 5, 0, 3600);
+      io.kind = io.kind === 'video' ? 'video' : 'image';
+      ensureAngles(io, -85, 85);
     });
     (node.choices || []).forEach(function(c){
       if (c.bgColor !== undefined) c.bgColor = safeColor(c.bgColor, '#0969da');
@@ -603,6 +795,8 @@ function sanitizeProject(p){
     node.waypoints.forEach(function(w){
       w.x = num(w.x, 50, 0, 100); w.y = num(w.y, 50, 0, 100);
       w.time = num(w.time, 0, 0, 3600); w.duration = num(w.duration, 6, 0, 3600);
+      ensureAngles(w, -85, 85);
+      w.floor = !!w.floor;
     });
     if (node.narration && typeof node.narration === 'object') {
       node.narration.startTime = num(node.narration.startTime, 0, 0, 3600);
@@ -640,7 +834,18 @@ var ICON_PATHS = {
   gear:'<circle cx="12" cy="12" r="3.2"/><path d="M12 3v3M12 18v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M3 12h3M18 12h3M4.9 19.1 7 17M17 7l2.1-2.1"/>',
   x:'<path d="M6 6l12 12M18 6 6 18"/>',
   check:'<path d="M5 13l4 4L19 7"/>',
-  bolt: '<path d="M13 3 4 14h6l-1 7 9-11h-6l1-7Z"/>'
+  bolt: '<path d="M13 3 4 14h6l-1 7 9-11h-6l1-7Z"/>',
+  help: '<circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="7.6" r="0.6" fill="currentColor" stroke="none"/>',
+  pause: '<path d="M8 5v14M16 5v14"/>',
+  volume: '<path d="M5 9v6h4l5 4V5L9 9H5Z"/><path d="M17 8.5a5 5 0 0 1 0 7"/>',
+  mute: '<path d="M5 9v6h4l5 4V5L9 9H5Z"/><path d="m17 9 5 6M22 9l-5 6"/>',
+  target: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>',
+  flag: '<path d="M6 3v18"/><path d="M6 4h11l-2.5 4L17 12H6"/>',
+  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  download: '<path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>',
+  zoomIn: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5M11 8v6M8 11h6"/>',
+  zoomOut: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-5-5M8 11h6"/>',
+  scissors: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.1 8.1 20 20M8.1 15.9 20 4"/>'
 };
 function icon(name, size){
   var d = ICON_PATHS[name];
@@ -658,12 +863,63 @@ var ELEMENT_TYPES = {
   scene:    { label:'Scene',    icon:'video',    endAllowed:true,  single:true },
   waypoint: { label:'Waypoint', icon:'waypoint', endAllowed:false, single:false },
   text:     { label:'Text',     icon:'edit',     endAllowed:true,  single:false },
-  image:    { label:'Image',    icon:'image',    endAllowed:true,  single:false },
+  image:    { label:'Media',    icon:'image',    endAllowed:true,  single:false },
   audio:    { label:'Narration',icon:'audio',    endAllowed:false, single:true  },
   question: { label:'Question', icon:'question', endAllowed:false, single:true  },
 };
 
 var PLAYER_PREVIEW_URL = '../ELaering-Player/index.html';
+// Fallback for a local copy downloaded from GitHub as "ELaering-Player-main".
+var PLAYER_PREVIEW_URL_ALT = '../ELaering-Player-main/index.html';
+
+// ---------------------------------------------------------------------------
+// ---- MediaStore — keeps attached video/image/audio files between sessions ---
+// ---------------------------------------------------------------------------
+// Root cause of "preview stopped working after I refreshed the page": the
+// project structure (scenes, texts, thumbnails) was saved in localStorage, but
+// the media FILES only ever lived in memory. After a refresh every scene still
+// showed its thumbnail, so everything looked intact — but there was no video
+// left to play, and the preview silently played nothing. The only "fix" was to
+// delete everything and upload it all again. Files are now kept in this
+// browser's IndexedDB (on this computer only — nothing is uploaded anywhere)
+// and re-attached automatically on load.
+var MediaStore = {
+  _p: null,
+  open: function(){
+    if (this._p) return this._p;
+    this._p = new Promise(function(resolve){
+      try {
+        var req = indexedDB.open('elb_media_v1', 1);
+        req.onupgradeneeded = function(){ req.result.createObjectStore('files'); };
+        req.onsuccess = function(){ resolve(req.result); };
+        req.onerror = function(){ resolve(null); };
+        req.onblocked = function(){ resolve(null); };
+      } catch(e){ resolve(null); }
+    });
+    return this._p;
+  },
+  _tx: function(mode, fn){
+    return this.open().then(function(db){
+      if (!db) return null;
+      return new Promise(function(resolve){
+        try {
+          var tx = db.transaction('files', mode);
+          var out = fn(tx.objectStore('files'));
+          tx.oncomplete = function(){ resolve(out && 'result' in out ? out.result : true); };
+          tx.onerror = tx.onabort = function(){ resolve(null); };
+        } catch(e){ resolve(null); }
+      });
+    });
+  },
+  put: function(id, blob){
+    if (!id || !(blob instanceof Blob)) return Promise.resolve(false);
+    if (navigator.storage && navigator.storage.persist) { try { navigator.storage.persist(); } catch(e){} }
+    return this._tx('readwrite', function(st){ st.put(blob, id); }).then(function(r){ return r !== null; });
+  },
+  get: function(id){ return this._tx('readonly', function(st){ return st.get(id); }); },
+  keys: function(){ return this._tx('readonly', function(st){ return st.getAllKeys(); }); },
+  del: function(id){ return this._tx('readwrite', function(st){ st.delete(id); }); }
+};
 
 // ---------------------------------------------------------------------------
 // ---- App ----
@@ -716,11 +972,14 @@ var App = {
         e.preventDefault();
         self.deleteNode();
       }
+      if (e.key === 'Escape' && self.placingWaypoint) { self.placingWaypoint = false; POV.setPlacing(null); self.renderPins(self.selectedNode); return; }
+      if (e.key === 'Escape' && document.getElementById('previewModal').style.display === 'flex') { self.closePreview(); return; }
       if (e.key === 'Escape') { self.closeSheet(); self.closeProjMenu(); self.closeSettingsPop(); document.getElementById('addMenuPop').classList.remove('show'); }
     });
 
     this.renderCanvas();
     this.saveState();
+    this.restoreMedia(true);
 
     requestAnimationFrame(function(){ self.fitView(); });
     window.addEventListener('resize', function(){ self.applyView(); });
@@ -731,6 +990,99 @@ var App = {
         if (!firstFit && wrapEl.clientWidth > 0) { firstFit = true; self.fitView(); }
       }).observe(wrapEl);
     }
+  },
+
+  _activeSlot: function(){
+    var id = this.activeProjectId;
+    return this.projects.find(function(p){ return p.id === id; }) || null;
+  },
+
+  // ---------------------------------------------------- media persistence --
+  // Every asset list in every project (not only the active one), so switching
+  // projects after a refresh finds its media too.
+  _allAssetLists: function(){
+    var self = this, lists = [];
+    this.projects.forEach(function(slot){
+      var pr = slot.id === self.activeProjectId ? self.project : slot.project;
+      if (!pr || !pr.assets) return;
+      ['videos','images','audio'].forEach(function(k){ if (Array.isArray(pr.assets[k])) lists.push(pr.assets[k]); });
+    });
+    return lists;
+  },
+  storeAsset: function(asset){
+    var self = this;
+    if (!asset || !(asset.fileObj instanceof Blob)) return;
+    MediaStore.put(asset.id, asset.fileObj).then(function(ok){
+      if (!ok) self.showStatus('Note: "' + asset.name + '" could not be kept in this browser\'s storage (full or blocked) — it will be gone after a refresh. Export a .zip as your backup.');
+    });
+  },
+  restoreMedia: function(collectGarbage){
+    var self = this;
+    var pending = [];
+    this._allAssetLists().forEach(function(list){
+      list.forEach(function(a){ if (a && !a.url) pending.push(a); });
+    });
+    var jobs = pending.map(function(a){
+      return MediaStore.get(a.id).then(function(blob){
+        if (blob instanceof Blob && !a.url) {
+          a.fileObj = blob instanceof File ? blob : new File([blob], a.name || a.id, { type: blob.type });
+          a.url = URL.createObjectURL(a.fileObj);
+          return true;
+        }
+        return false;
+      });
+    });
+    return Promise.all(jobs).then(function(results){
+      self.mediaRestored = true;
+      // Re-render when anything came back OR anything is still missing (so
+      // the "Missing video" badges appear on the canvas).
+      if (results.some(Boolean) || self.missingAssets().length) {
+        self.renderCanvas();
+        if (self.selectedNode && document.getElementById('sceneSheet').classList.contains('show')) {
+          var node = self.project.nodes.find(function(n){ return n.id === self.selectedNode.id; });
+          if (node) { self.selectedNode = node; self.renderScenePreview(node); self.refreshOpenEditor(); }
+        }
+      }
+      self.updateMediaBanner();
+      if (collectGarbage) {
+        // Drop stored files no project references any more (removed projects,
+        // replaced clips) so the browser's storage doesn't grow forever.
+        MediaStore.keys().then(function(keys){
+          // "keep" is computed now, not earlier, so a file attached a moment
+          // ago is never swept up by mistake.
+          var keep = {};
+          self._allAssetLists().forEach(function(list){ list.forEach(function(a){ if (a) keep[a.id] = 1; }); });
+          (keys || []).forEach(function(k){ if (!keep[k]) MediaStore.del(k); });
+        });
+      }
+    });
+  },
+  // Assets actually used by a scene (a replaced clip stays in the asset list
+  // for undo, but must not count as "missing" nor bloat the export).
+  referencedAssetIds: function(project){
+    var pr = project || this.project, ids = {};
+    pr.nodes.forEach(function(n){
+      if (n.video) ids[n.video] = 1;
+      if (n.narration && n.narration.file) ids[n.narration.file] = 1;
+      (n.imageOverlays || []).forEach(function(io){ if (io.imageId) ids[io.imageId] = 1; if (io.videoId) ids[io.videoId] = 1; });
+    });
+    return ids;
+  },
+  missingAssets: function(){
+    var ids = this.referencedAssetIds(), out = [];
+    var a = this.project.assets;
+    ['videos','images','audio'].forEach(function(k){ (a[k] || []).forEach(function(x){ if (ids[x.id] && !x.url) out.push(x); }); });
+    return out;
+  },
+  updateMediaBanner: function(){
+    var el = document.getElementById('mediaBanner');
+    if (!el) return;
+    var miss = this.mediaRestored ? this.missingAssets() : [];
+    if (!miss.length) { el.classList.remove('show'); return; }
+    el.innerHTML = '<b>' + miss.length + ' media file' + (miss.length > 1 ? 's are' : ' is') + ' not on this computer yet</b>' +
+      'Scenes marked “Missing” can\'t play in the preview. Open the project .zip with the folder icon (top left), or re-attach each file inside its scene.' +
+      '<button type="button" onclick="document.getElementById(\'loaderInput\').click()">Open project .zip</button>';
+    el.classList.add('show');
   },
 
   setCanvasBg: function(bg){
@@ -753,8 +1105,8 @@ var App = {
       title: type === 'video' ? 'New scene' : 'End scene',
       video: null, imageOverlays: [], textOverlays: [], waypoints: [],
       narration: null, transition: 'smooth',
-      fadeIn: 0, fadeOut: 0, startYaw: 0,
-      question: '', questionTime: 0, questionX: 50, questionY: 50, questionScale: 1.0,
+      fadeIn: 0, fadeOut: 0, startYaw: 0, trimStart: 0, trimEnd: 0,
+      question: '', questionTime: 0, questionX: 50, questionY: 50, questionYaw: 0, questionPitch: 0, questionScale: 1.0,
       choices: [], duration: 10, defaultNext: null,
       outcome: type === 'end' ? 'complete' : null
     };
@@ -811,12 +1163,18 @@ var App = {
     // generic gradient placeholder on every reload, even though nothing
     // technically prevented it from surviving — found while explicitly testing
     // thumbnail persistence, not incidentally.
+    var self = this;
     try {
       var light = this.projects.map(function(p){
-        var clean = JSON.parse(JSON.stringify(p.project, function(k, v){
+        // The active slot is always saved from this.project itself — undo swaps
+        // this.project for a fresh snapshot object, and saving p.project there
+        // silently persisted the stale pre-undo object instead (every edit made
+        // after an undo was lost on the next refresh).
+        var src = p.id === self.activeProjectId ? self.project : p.project;
+        var clean = JSON.parse(JSON.stringify(src, function(k, v){
           return (k === 'fileObj' || k === 'url') ? undefined : v;
         }));
-        return { id: p.id, title: p.project.title, project: clean };
+        return { id: p.id, title: src.title, project: clean };
       });
       localStorage.setItem('elb_projects_v1', JSON.stringify({ projects: light, activeProjectId: this.activeProjectId }));
     } catch(e){}
@@ -840,6 +1198,7 @@ var App = {
     requestAnimationFrame(function(){ App.fitView(); });
     this.closeProjMenu();
     this.persistProjects();
+    this.updateMediaBanner();
   },
   createProject: function(title){
     var p = this.newProject(title || 'Untitled project');
@@ -926,7 +1285,26 @@ var App = {
     document.getElementById('loadBtn').onclick = function(){ document.getElementById('loaderInput').click(); };
     document.getElementById('loaderInput').onchange = function(e){ self.loadFile(e); };
 
-    document.getElementById('zoomOutBtn').onclick = function(){ self.zoomBy(1/1.2); };
+    // Small, predictable ±10% steps (was ±20%) plus a slider and a click-to-reset
+    // percentage, so a specific zoom level can actually be hit.
+    document.getElementById('zoomOutBtn').onclick = function(){ self.zoomBy(1/1.1); };
+    document.getElementById('zoomInBtn').onclick = function(){ self.zoomBy(1.1); };
+    document.getElementById('zoomSlider').addEventListener('input', function(e){
+      self.zoomBy((parseFloat(e.target.value) / 100) / self.view.scale);
+    });
+    document.getElementById('zoomPill').onclick = function(){ self.zoomBy(1 / self.view.scale); };
+    document.getElementById('helpBtn').onclick = function(){ self.openHelp(); };
+    document.getElementById('helpClose').onclick = function(){ document.getElementById('helpModal').classList.remove('show'); };
+    document.getElementById('relinkFileInput').onchange = function(e){ self.handleRelinkPick(e); };
+    document.getElementById('previewRestartBtn').onclick = function(){ self.restartPreview(); };
+    document.getElementById('previewReplayBtn').onclick = function(){ self.restartPreview(); };
+    document.getElementById('previewEndCloseBtn').onclick = function(){ self.closePreview(); };
+    document.getElementById('previewSceneSelect').onchange = function(e){ self.openPreview({ nodeId: e.target.value, single: document.getElementById('previewSingleChk').checked }); };
+    document.getElementById('previewSingleChk').onchange = function(e){
+      if (self._previewOpts) self._previewOpts.single = e.target.checked;
+      var f = document.getElementById('previewPlayerFrame');
+      if (self._previewLoaded && f.contentWindow) f.contentWindow.postMessage({ type: 'lxrPreviewSingle', single: e.target.checked }, '*');
+    };
     document.getElementById('fitBtn').onclick = function(){ self.fitView(); };
     // "+" opens a small type-picker rather than always creating a video scene —
     // there was previously NO way to create an end-screen node from the UI at
@@ -1033,10 +1411,12 @@ var App = {
       });
     });
     this.project = snap;
+    var slot = this._activeSlot(); if (slot) slot.project = snap;
     this.deselect();
     this.closeSheet();
     this.renderCanvas();
     this.isUndoing = false;
+    this.restoreMedia(false);
     document.getElementById('undoBtn').disabled = this.historyIndex <= 0;
     this.persistProjects();
   },
@@ -1095,7 +1475,8 @@ var App = {
       if (node.narration && node.narration.file) icons.push(icon('audio', 11));
       if (node.question || (node.choices && node.choices.length)) icons.push(icon('question', 11));
       var iconsRow = icons.length ? '<div class="node-icons">' + icons.map(function(i){ return '<span class="icon-chip">' + i + '</span>'; }).join('') + '</div>' : '';
-      body = thumb + '<div class="node-scrim"></div>' + projBadge + iconsRow;
+      var missing = (asset && !asset.url && this.mediaRestored) ? '<div class="node-missing" title="The video file isn\'t on this computer — open the project .zip or re-attach it">Missing video</div>' : '';
+      body = thumb + '<div class="node-scrim"></div>' + projBadge + iconsRow + missing;
     }
     var deleteBtn = '<button type="button" class="node-delete" title="Delete scene" aria-label="Delete scene">' + icon('trash', 13) + '</button>';
     el.innerHTML = badge + deleteBtn + '<div class="node-circle">' + body + '</div>' +
@@ -1176,15 +1557,27 @@ var App = {
       document.addEventListener('mousemove', move);
       document.addEventListener('mouseup', up);
     });
+    // Zoom proportional to how far the wheel/trackpad actually moved. The old
+    // handler zoomed a fixed 10% on EVERY wheel event regardless of size — a
+    // trackpad sends dozens of tiny events per swipe, so one small gesture
+    // jumped several hundred percent ("far too sensitive, can't hit the zoom I
+    // want"). A mouse-wheel notch still gives ~10%; trackpad scrolling and
+    // pinch (ctrlKey) are now smooth and gentle.
     wrap.addEventListener('wheel', function(e){
       e.preventDefault();
       var rect = wrap.getBoundingClientRect();
-      self.zoomAt(e.deltaY < 0 ? 1.1 : 1/1.1, e.clientX - rect.left, e.clientY - rect.top);
+      var dy = e.deltaY;
+      if (e.deltaMode === 1) dy *= 16; else if (e.deltaMode === 2) dy *= 400;
+      dy = Math.max(-100, Math.min(100, dy));
+      var k = e.ctrlKey ? 0.006 : 0.001;
+      self.zoomAt(Math.exp(-dy * k), e.clientX - rect.left, e.clientY - rect.top);
     }, { passive: false });
   },
   applyView: function(){
     document.getElementById('canvas').style.transform = 'translate(' + this.view.x + 'px,' + this.view.y + 'px) scale(' + this.view.scale + ')';
     document.getElementById('zoomPill').textContent = Math.round(this.view.scale * 100) + '%';
+    var zs = document.getElementById('zoomSlider');
+    if (zs && document.activeElement !== zs) zs.value = Math.round(this.view.scale * 100);
     // #canvasGrid is a plain, untransformed, viewport-filling layer — CSS
     // background-position tiles infinitely in every direction on its own, so
     // offsetting it by the same pan (view.x/y) and scaling the dot spacing by
@@ -1223,7 +1616,12 @@ var App = {
 
   updateConnections: function(){
     var svg = document.getElementById('connections');
-    svg.innerHTML = '';
+    // Arrowheads show direction (which scene leads where) — one marker per
+    // line colour, since SVG markers don't inherit the path's stroke.
+    svg.innerHTML = '<defs>' + ['neutral','correct','incorrect'].map(function(k){
+      return '<marker id="arrow-' + k + '" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="13" markerHeight="13" markerUnits="userSpaceOnUse" orient="auto">' +
+        '<path d="M0,0 L10,5 L0,10 Z" class="conn-arrow-' + k + '"/></marker>';
+    }).join('') + '</defs>';
     var self = this;
     this.project.nodes.forEach(function(node){
       if (node.defaultNext) self.drawConnection(node.id, node.defaultNext, 'neutral');
@@ -1235,11 +1633,22 @@ var App = {
     var from = this.project.nodes.find(function(n){ return n.id === fromId; });
     var to = this.project.nodes.find(function(n){ return n.id === toId; });
     if (!from || !to) return;
-    var x1=from.x+70, y1=from.y+70, x2=to.x+70, y2=to.y+70;
-    var dx = x2-x1;
+    if (from === to) return;
+    // Centre to centre, then trimmed back to each circle's rim (radius 70 +
+    // border) so the arrowhead lands visibly ON the target node instead of
+    // hiding underneath it. A gentle sideways bow keeps A→B and B→A apart.
+    var cx1=from.x+70, cy1=from.y+70, cx2=to.x+70, cy2=to.y+70;
+    var dx = cx2-cx1, dy = cy2-cy1, len = Math.sqrt(dx*dx+dy*dy);
+    if (len < 150) return; // overlapping nodes — nothing sensible to draw
+    var ux = dx/len, uy = dy/len, nx = -uy, ny = ux;
+    var x1 = cx1 + ux*74, y1 = cy1 + uy*74, x2 = cx2 - ux*76, y2 = cy2 - uy*76;
+    var L = len - 150, bow = Math.min(60, L*0.12);
+    var c1x = x1 + ux*L*0.33 + nx*bow, c1y = y1 + uy*L*0.33 + ny*bow;
+    var c2x = x2 - ux*L*0.33 + nx*bow, c2y = y2 - uy*L*0.33 + ny*bow;
     var path = document.createElementNS('http://www.w3.org/2000/svg','path');
-    path.setAttribute('d', 'M'+x1+','+y1+' C'+(x1+dx*0.3)+','+y1+' '+(x2-dx*0.3)+','+y2+' '+x2+','+y2);
+    path.setAttribute('d', 'M'+x1+','+y1+' C'+c1x+','+c1y+' '+c2x+','+c2y+' '+x2+','+y2);
     path.setAttribute('class', 'connection ' + kind);
+    path.setAttribute('marker-end', 'url(#arrow-' + kind + ')');
     document.getElementById('connections').appendChild(path);
   },
 
@@ -1260,6 +1669,7 @@ var App = {
     document.getElementById('sceneSheet').classList.remove('show');
     document.getElementById('editorSlot').innerHTML = '';
     this.placingWaypoint = false;
+    POV.close();
   },
 
   renderScenePreview: function(node){
@@ -1268,26 +1678,37 @@ var App = {
     var preview = document.getElementById('scenePreview');
     var badge = document.getElementById('projBadge');
     var meta = document.getElementById('sceneMeta');
+    var bar = document.getElementById('povBar');
+    var host = document.getElementById('povHost');
     var asset = node.video ? this.project.assets.videos.find(function(v){ return v.id === node.video; }) : null;
 
+    ['addVideoBtn','replaceVideoBtn','startYawDial','relinkBox','pov3dNote'].forEach(function(id){ var el = document.getElementById(id); if (el) el.remove(); });
+
+    var livePov = false;
     if (node.type === 'end') {
       badge.style.display = 'none';
-      meta.textContent = 'End screen · ' + node.duration + 's';
+      meta.textContent = 'End screen · shown for ' + node.duration + 's';
       preview.style.background = 'var(--surface-2)';
     } else if (asset) {
       badge.style.display = 'flex';
       badge.innerHTML = (asset.projection === '180' ? '180°' : '360°') + (asset.stereo !== 'mono' ? ' <span style="opacity:.7">· 3D ' + (asset.stereo === 'sbs' ? 'SBS' : 'TB') + '</span>' : '');
-      meta.textContent = asset.name + ' · ' + node.duration + 's';
+      meta.textContent = asset.name + (asset.duration ? ' · ' + fmtTime(asset.duration, true) : '');
       preview.style.background = asset.thumb ? ('center/cover no-repeat url(' + asset.thumb + ')') : this.thumbGradient(node.id);
+      if (asset.url && POV.init()) {
+        livePov = true;
+        preview.style.background = '#000';
+        POV.open(node, asset);
+      }
     } else {
       badge.style.display = 'none';
       meta.textContent = '';
       preview.style.background = 'var(--field-bg)';
     }
+    if (!livePov) POV.close();
+    host.style.display = livePov ? 'block' : 'none';
+    bar.style.display = livePov ? 'flex' : 'none';
+    if (livePov) this.buildPovBar(node, asset);
 
-    var old = document.getElementById('addVideoBtn'); if (old) old.remove();
-    var oldReplace = document.getElementById('replaceVideoBtn'); if (oldReplace) oldReplace.remove();
-    var oldDial = document.getElementById('startYawDial'); if (oldDial) oldDial.remove();
     if (node.type !== 'end') {
       if (!asset) {
         var btn = document.createElement('button');
@@ -1299,22 +1720,83 @@ var App = {
         var rbtn = document.createElement('button');
         rbtn.className = 'replace-video'; rbtn.id = 'replaceVideoBtn';
         rbtn.innerHTML = icon('video', 12) + ' Replace';
+        rbtn.title = 'Swap in a different video file for this scene';
         rbtn.onclick = function(){ document.getElementById('videoFileInput').click(); };
         preview.appendChild(rbtn);
-
-        var dial = document.createElement('div');
-        dial.className = 'start-yaw-dial'; dial.id = 'startYawDial';
-        dial.title = 'Start position: ' + (node.startYaw||0) + '° — set in the Scene card';
-        dial.innerHTML = '<div class="needle" style="transform:rotate(' + (node.startYaw||0) + 'deg)"></div>';
-        preview.appendChild(dial);
+        if (!asset.url) {
+          // The clip's settings are still here, only the file itself isn't on
+          // this computer. Re-attaching keeps projection/3D/waypoints intact.
+          var box = document.createElement('div');
+          box.id = 'relinkBox'; box.className = 'add-video';
+          box.innerHTML = '<div class="plus-circle" style="background:var(--red);color:#fff">' + icon('video', 22) + '</div>' +
+            '<div class="lb" style="color:#fff;text-align:center;max-width:360px;text-shadow:0 1px 4px #000">“' + esc(asset.name) + '” is not on this computer.<br>Re-attach the file (everything else in the scene is kept).</div>';
+          box.onclick = function(){ App.startRelink('videos', asset.id); };
+          preview.appendChild(box);
+        } else if (asset.stereo && asset.stereo !== 'mono') {
+          var note = document.createElement('div');
+          note.id = 'pov3dNote'; note.className = 'pov-3d-note';
+          note.textContent = '3D clip — shown as 2D (left eye) here; depth appears in the headset';
+          preview.appendChild(note);
+        }
       }
     }
     this.renderPins(node);
   },
+
+  // Controls under the POV view: play/scrub the real clip, zoom the view,
+  // start direction, and "preview from here".
+  buildPovBar: function(node, asset){
+    var bar = document.getElementById('povBar');
+    if (bar.dataset.nodeId === node.id && bar.dataset.assetId === asset.id && bar.children.length) { POV.syncBar(); return; }
+    bar.dataset.nodeId = node.id; bar.dataset.assetId = asset.id;
+    bar.innerHTML =
+      '<button class="pb" id="povPlay" title="Play / pause (sound is muted in this small view)">' + icon('play', 13) + '</button>' +
+      '<input type="range" class="pov-scrub" id="povScrub" min="0" max="1" step="0.05" value="0" title="Drag to move through the video">' +
+      '<span class="pov-time" id="povTime">0:00.0</span>' +
+      '<button class="pb" id="povMute" title="Sound on/off">' + icon('mute', 13) + '</button>' +
+      '<div style="flex-basis:100%;height:0"></div>' +
+      '<button class="pb" id="povZoomOut" title="Zoom out (wider view)">' + icon('zoomOut', 13) + '</button>' +
+      '<button class="pb" id="povZoomIn" title="Zoom in (closer view)">' + icon('zoomIn', 13) + '</button>' +
+      '<div class="sep"></div>' +
+      '<button class="pb" id="povLookStart" title="Turn the view to this scene\'s start direction">' + icon('target', 13) + ' Start view</button>' +
+      '<button class="pb" id="povSetStart" title="Make the direction you are looking at now the direction the learner faces when this scene begins">' + icon('flag', 13) + ' Set start view here</button>' +
+      '<div class="sep"></div>' +
+      '<button class="pb" id="povPreviewHere" title="Open the full preview at this scene and this point in time, then continue through the scenario">' + icon('play', 13) + ' Preview from here</button>' +
+      '<button class="pb" id="povPreviewOnly" title="Open the full preview of ONLY this scene, from this point in time">' + icon('video', 13) + ' This scene only</button>';
+    document.getElementById('povPlay').onclick = function(){ POV.togglePlay(); };
+    document.getElementById('povMute').onclick = function(){ POV.toggleMute(); };
+    document.getElementById('povZoomOut').onclick = function(){ POV.zoom(1); };
+    document.getElementById('povZoomIn').onclick = function(){ POV.zoom(-1); };
+    document.getElementById('povLookStart').onclick = function(){ POV.lookAt(App.selectedNode.startYaw || 0, 0); };
+    document.getElementById('povSetStart').onclick = function(){ App.setStartYawFromView(); };
+    document.getElementById('povPreviewHere').onclick = function(){ App.openPreview({ nodeId: node.id, startTime: POV.currentTime(), single: false }); };
+    document.getElementById('povPreviewOnly').onclick = function(){ App.openPreview({ nodeId: node.id, startTime: POV.currentTime(), single: true }); };
+    var scrub = document.getElementById('povScrub');
+    scrub.addEventListener('input', function(){ POV.scrubbing = true; POV.seek(parseFloat(scrub.value)); });
+    scrub.addEventListener('change', function(){ POV.scrubbing = false; });
+    POV.syncBar();
+  },
+  setStartYawFromView: function(){
+    if (!this.selectedNode) return;
+    var y = Math.round(((POV.yaw % 360) + 360) % 360) % 360;
+    this.selectedNode.startYaw = y;
+    this.createNodeElement(this.selectedNode);
+    this.refreshOpenEditor();
+    this.saveState();
+    POV.buildMarkers();
+    this.showStatus('Start view set — learners begin this scene facing this way (' + y + '°)');
+  },
+
   renderPins: function(node){
     var layer = document.getElementById('pinLayer');
     layer.innerHTML = '';
     var self = this;
+    if (POV.active && POV.node === node) {
+      POV.buildMarkers();
+      POV.setPlacing(this.placingWaypoint ? 'waypoint' : null);
+      return;
+    }
+    // Fallback (no live video / no WebGL): the old flat pins on the thumbnail.
     if (node.video) {
       (node.waypoints || []).forEach(function(wp, i){
         var pin = document.createElement('div');
@@ -1334,7 +1816,7 @@ var App = {
         var rect = document.getElementById('scenePreview').getBoundingClientRect();
         var x = Math.round(((ev.clientX - rect.left) / rect.width) * 100);
         var y = Math.round(((ev.clientY - rect.top) / rect.height) * 100);
-        self.addWaypoint(x, y);
+        self.addWaypoint({ yaw: xToYaw(x), pitch: yToPitch(y), time: 0 });
         self.placingWaypoint = false;
         self.openEditor(node, 'waypoint');
       };
@@ -1352,8 +1834,10 @@ var App = {
     var asset = { id: 'v' + Date.now() + Math.random().toString(36).substr(2,4), name: file.name, fileObj: file, url: url, thumb: null, projection: '360', stereo: 'mono' };
     this.project.assets.videos.push(asset);
     node.video = asset.id;
+    this.storeAsset(asset);
     this.createNodeElement(node);
     this.renderScenePreview(node);
+    this.updateMediaBanner();
     this.refreshOpenEditor();
     this.buildCardGrid(node);
     this.saveState();
@@ -1384,6 +1868,7 @@ var App = {
     var asset = { id: 'a' + Date.now() + Math.random().toString(36).substr(2,4), name: file.name, fileObj: file, url: url };
     if (!this.project.assets.audio) this.project.assets.audio = [];
     this.project.assets.audio.push(asset);
+    this.storeAsset(asset);
     node.narration = { file: asset.id, startTime: 0 };
     this.createNodeElement(node);
     this.openEditor(node, 'audio');
@@ -1392,21 +1877,73 @@ var App = {
   },
   handleImagePick: function(e){
     var files = Array.from(e.target.files);
-    var node = this.selectedNode;
     e.target.value = '';
-    if (!files.length || !node) return;
-    var self = this;
-    files.forEach(function(file){
+    this.addMediaFiles(files, null);
+  },
+  // Media = images AND flat video clips shown inside the scene (the "Image" tab
+  // became "Media"). `place` = {yaw, pitch, time} when dropped onto the POV
+  // view; otherwise items land where the POV is currently looking, at the
+  // current point in the clip.
+  addMediaFiles: function(files, place){
+    var node = this.selectedNode;
+    if (!files || !files.length || !node) return;
+    var self = this, added = 0;
+    if (!place) place = POV.active && POV.node === node
+      ? { yaw: POV.yaw, pitch: Math.max(-60, Math.min(60, POV.pitch)), time: Math.round(POV.currentTime() * 10) / 10 }
+      : { yaw: 0, pitch: 0, time: 0 };
+    files.forEach(function(file, i){
+      var isVideo = /^video\//.test(file.type) || /\.(mp4|webm|mov|m4v)$/i.test(file.name);
+      var isImage = /^image\//.test(file.type) || /\.(png|jpe?g|gif|webp)$/i.test(file.name);
+      if (!isVideo && !isImage) return;
       var url = URL.createObjectURL(file);
-      var asset = { id: 'i' + Date.now() + Math.random().toString(36).substr(2,4), name: file.name, fileObj: file, url: url };
-      self.project.assets.images.push(asset);
+      var yaw = wrapYaw(place.yaw + i * 8);
+      var item = { time: place.time || 0, duration: 5, yaw: yaw, pitch: place.pitch, x: yawToX(yaw), y: pitchToY(place.pitch), scale: 1.0 };
+      if (isVideo) {
+        var va = { id: 'v' + Date.now() + Math.random().toString(36).substr(2,4), name: file.name, fileObj: file, url: url, thumb: null, projection: '360', stereo: 'mono', overlay: true };
+        self.project.assets.videos.push(va);
+        self.storeAsset(va);
+        item.kind = 'video'; item.videoId = va.id; item.duration = 10; item.muted = false; item.loop = false;
+      } else {
+        var ia = { id: 'i' + Date.now() + Math.random().toString(36).substr(2,4), name: file.name, fileObj: file, url: url };
+        self.project.assets.images.push(ia);
+        self.storeAsset(ia);
+        item.kind = 'image'; item.imageId = ia.id;
+      }
       if (!node.imageOverlays) node.imageOverlays = [];
-      node.imageOverlays.push({ imageId: asset.id, time: 0, duration: 5, x: 50, y: 50, scale: 1.0 });
+      node.imageOverlays.push(item);
+      added++;
     });
+    if (!added) { this.showStatus('Only images and video files can be added as media'); return; }
     this.createNodeElement(node);
     this.openEditor(node, 'image');
     this.saveState();
-    this.showStatus('Added ' + files.length + ' image(s)');
+    this.showStatus('Added ' + added + ' media item' + (added > 1 ? 's' : '') + (POV.active ? ' where you are looking' : ''));
+  },
+  // Re-attach a file that isn't on this computer (e.g. project opened on a new
+  // PC from localStorage only) — same asset id, so every setting is kept.
+  startRelink: function(kind, id){
+    this._relink = { kind: kind, id: id };
+    var inp = document.getElementById('relinkFileInput');
+    inp.accept = kind === 'videos' ? 'video/*' : kind === 'images' ? 'image/*' : 'audio/*';
+    inp.click();
+  },
+  handleRelinkPick: function(e){
+    var file = e.target.files[0];
+    e.target.value = '';
+    var r = this._relink; this._relink = null;
+    if (!file || !r) return;
+    var a = (this.project.assets[r.kind] || []).find(function(x){ return x.id === r.id; });
+    if (!a) return;
+    if (a.url && a.url.indexOf('blob:') === 0) { try { URL.revokeObjectURL(a.url); } catch(_){} }
+    a.fileObj = file; a.url = URL.createObjectURL(file); a.name = file.name;
+    this.storeAsset(a);
+    var self = this;
+    if (r.kind === 'videos' && !a.thumb) this.generateThumb(a.url).then(function(t){ if (t) { a.thumb = t; self.renderCanvas(); self.saveState(); } });
+    this.renderCanvas();
+    if (this.selectedNode) { this.renderScenePreview(this.selectedNode); this.refreshOpenEditor(); }
+    this.saveState();
+    this.updateMediaBanner();
+    this.showStatus('Re-attached ' + file.name);
   },
   generateThumb: function(videoUrl){
     return new Promise(function(resolve){
@@ -1437,57 +1974,200 @@ var App = {
       video.addEventListener('error', function(){ finish(null); });
     });
   },
-  compressVideo: function(assetId){
+  // ---------------------------------------------------------- compress ----
+  // What was wrong before: a single click started a real-time re-record with
+  // the clip's SOUND PLAYING OUT LOUD, a 3-second toast was the only feedback,
+  // nothing stopped a second (third…) click from starting parallel runs on top
+  // of each other (overlapping audio), there was no choice of quality, no
+  // before/after numbers, and the original was silently replaced. Now: one job
+  // at a time, a quality choice, a live progress bar with time left, silent
+  // processing, a before/after comparison, and YOU decide whether to keep it.
+  COMPRESS_PRESETS: {
+    high:     { label: 'High quality', maxW: 3840, mbps: 16, d: 'Up to 3840 px wide, 16 Mbit/s. Keeps 360° detail sharp — moderate size saving.' },
+    balanced: { label: 'Balanced',     maxW: 2880, mbps: 8,  d: 'Up to 2880 px wide, 8 Mbit/s. Good for most scenes.' },
+    small:    { label: 'Small file',   maxW: 1920, mbps: 4,  d: 'Up to 1920 px wide, 4 Mbit/s. Fastest to load; visibly softer in a 360° headset.' }
+  },
+  compressVideo: function(assetId){ this.openCompress(assetId); },
+  _fmtMB: function(bytes){ return (bytes / (1024*1024)).toFixed(bytes > 100*1024*1024 ? 0 : 1) + ' MB'; },
+  _fmtRate: function(bps){ return (bps / 1e6).toFixed(1) + ' Mbit/s'; },
+  openCompress: function(assetId){
     var self = this;
+    var modal = document.getElementById('compressModal');
+    modal.querySelector('h3').innerHTML = icon('compress', 15) + ' Compress video';
+    if (this._compressJob) { modal.classList.add('show'); return; } // already running — just show it again
     var v = this.project.assets.videos.find(function(x){ return x.id === assetId; });
-    if (!v || !v.url) { alert('Video not available — re-load the .zip first.'); return; }
+    if (!v || !v.url) { alert('This video file is not on this computer — re-attach it or open the project .zip first.'); return; }
+    this._cmp = { assetId: assetId, preset: this._cmp && this._cmp.preset || 'balanced' };
+    var body = document.getElementById('compressBody');
+    body.innerHTML = '<div class="loader-inline"><div class="spinner"></div>Reading video…</div>';
+    modal.classList.add('show');
+    var probe = document.createElement('video');
+    probe.muted = true; probe.preload = 'metadata'; probe.src = v.url;
+    probe.onloadedmetadata = function(){
+      self._cmp.duration = probe.duration || 0;
+      self._cmp.w = probe.videoWidth; self._cmp.h = probe.videoHeight;
+      self._cmp.size = (v.fileObj && v.fileObj.size) || 0;
+      probe.removeAttribute('src'); probe.load();
+      self.renderCompressSetup();
+    };
+    probe.onerror = function(){ body.innerHTML = '<div class="sub">Could not read this video.</div><div class="btn-row"><button class="btn secondary" onclick="App.closeCompress()">Close</button></div>'; };
+  },
+  renderCompressSetup: function(){
+    var c = this._cmp, self = this;
+    var v = this.project.assets.videos.find(function(x){ return x.id === c.assetId; });
+    var srcRate = c.duration ? c.size * 8 / c.duration : 0;
+    var h = '<div class="sub">Makes the file smaller so it loads faster on the headset. The clip is played through once, silently, in real time — about <b>' + fmtTime(c.duration, true) + '</b>. Keep this tab open while it runs. Your original stays in use until you choose to keep the new version.</div>';
+    h += '<div class="export-summary" style="margin:8px 0">' +
+      '<div class="export-row"><span class="k">File</span><span class="v">' + esc(v.name) + '</span></div>' +
+      '<div class="export-row"><span class="k">Now</span><span class="v">' + this._fmtMB(c.size) + ' · ' + c.w + '×' + c.h + ' · ' + this._fmtRate(srcRate) + '</span></div></div>';
+    h += '<div class="cmp-presets">';
+    Object.keys(this.COMPRESS_PRESETS).forEach(function(k){
+      var p = self.COMPRESS_PRESETS[k];
+      var w = Math.min(p.maxW, c.w || p.maxW);
+      var est = (p.mbps * 1e6 + 128000) * c.duration / 8;
+      h += '<label class="cmp-preset' + (c.preset === k ? ' active' : '') + '"><input type="radio" name="cmpPreset" value="' + k + '"' + (c.preset === k ? ' checked' : '') + '>' +
+        '<div><b>' + p.label + '</b> — ≈ ' + self._fmtMB(est) + ' · ' + w + ' px wide<div class="d">' + p.d + '</div></div></label>';
+    });
+    h += '</div>';
+    h += '<div class="btn-row"><button class="btn secondary" id="cmpCancel">Cancel</button><button class="btn" id="cmpStart">Start compression</button></div>';
+    var body = document.getElementById('compressBody');
+    body.innerHTML = h;
+    body.querySelectorAll('input[name=cmpPreset]').forEach(function(r){
+      r.onchange = function(){ c.preset = r.value; self.renderCompressSetup(); };
+    });
+    document.getElementById('cmpCancel').onclick = function(){ self.closeCompress(); };
+    document.getElementById('cmpStart').onclick = function(){ self.runCompress(); };
+  },
+  closeCompress: function(){
+    if (this._compressJob) { document.getElementById('compressModal').classList.remove('show'); this.showStatus('Compression continues in the background — click Compress again to see progress'); return; }
+    document.getElementById('compressModal').classList.remove('show');
+  },
+  runCompress: function(){
+    var self = this, c = this._cmp;
+    if (this._compressJob) return;
+    var v = this.project.assets.videos.find(function(x){ return x.id === c.assetId; });
+    if (!v || !v.url) return;
     if (!window.MediaRecorder || !HTMLCanvasElement.prototype.captureStream) {
-      alert('Video compression needs MediaRecorder + canvas.captureStream, not available in this browser.'); return;
+      alert('Video compression needs a recent Chrome, Edge or Safari (MediaRecorder + canvas.captureStream).'); return;
     }
+    var preset = this.COMPRESS_PRESETS[c.preset];
+    var mime = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4']
+      .find(function(m){ try { return MediaRecorder.isTypeSupported(m); } catch(e){ return false; } });
+    if (!mime) { alert('This browser cannot record video — try Chrome.'); return; }
+    var ext = mime.indexOf('mp4') !== -1 ? '.mp4' : '.webm';
+
+    var body = document.getElementById('compressBody');
+    body.innerHTML = '<div class="sub">Compressing <b>' + esc(v.name) + '</b> — ' + preset.label + '. Keep this tab open and visible.</div>' +
+      '<div class="progress"><div id="cmpBar"></div></div>' +
+      '<div class="loader-inline" style="padding:2px 0 0"><div class="spinner"></div><span id="cmpLabel">Starting…</span></div>' +
+      '<div class="btn-row"><button class="btn secondary" id="cmpStop">Cancel compression</button><button class="btn secondary" id="cmpHide">Hide</button></div>';
+
     var video = document.createElement('video');
-    video.src = v.url; video.muted = false; video.playsInline = true;
+    video.src = v.url; video.playsInline = true; video.preload = 'auto';
     video.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:2px;height:2px;';
     document.body.appendChild(video);
+    var job = { cancelled: false, video: video, ac: null, rec: null };
+    this._compressJob = job;
+    document.getElementById('cmpStop').onclick = function(){ job.cancelled = true; try { if (job.rec && job.rec.state !== 'inactive') job.rec.stop(); else cleanup(); } catch(e){ cleanup(); } };
+    document.getElementById('cmpHide').onclick = function(){ self.closeCompress(); };
+
+    var cleanup = function(){
+      try { video.pause(); video.remove(); } catch(e){}
+      try { if (job.ac) job.ac.close(); } catch(e){}
+      if (self._compressJob === job) self._compressJob = null;
+    };
+    var fail = function(msg){
+      cleanup();
+      body.innerHTML = '<div class="sub" style="color:var(--red)">' + esc(msg) + '</div><div class="btn-row"><button class="btn secondary" onclick="App.closeCompress()">Close</button></div>';
+    };
+
+    video.addEventListener('error', function(){ fail('Could not load this video for compression.'); });
     video.addEventListener('loadedmetadata', function(){
-      var targetW = Math.min(1920, video.videoWidth || 1920);
-      var scale = targetW / (video.videoWidth || targetW);
-      var canvas = document.createElement('canvas');
-      canvas.width = targetW; canvas.height = Math.round((video.videoHeight||960)*scale) || 960;
+      var vw = video.videoWidth || 1920, vh = video.videoHeight || 960;
+      var w = Math.min(preset.maxW, vw); w -= w % 2;
+      var hgt = Math.round(vh * w / vw); hgt -= hgt % 2;
+      var canvas = document.createElement('canvas'); canvas.width = w; canvas.height = hgt;
       var ctx = canvas.getContext('2d');
       var tracks = canvas.captureStream(30).getVideoTracks();
-      if (video.captureStream) tracks = tracks.concat(video.captureStream().getAudioTracks());
-      var mixed = new MediaStream(tracks);
-      var mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') ? 'video/webm;codecs=vp9,opus' : 'video/webm';
-      var rec = new MediaRecorder(mixed, { mimeType: mimeType, videoBitsPerSecond: 2500000 });
+      // The clip's audio is routed ONLY into the recording (never to the
+      // speakers), so compressing is silent — before, the sound played aloud.
+      try {
+        var AC = window.AudioContext || window.webkitAudioContext;
+        job.ac = new AC();
+        var srcNode = job.ac.createMediaElementSource(video);
+        var dest = job.ac.createMediaStreamDestination();
+        srcNode.connect(dest);
+        tracks = tracks.concat(dest.stream.getAudioTracks());
+        if (job.ac.state === 'suspended') job.ac.resume();
+      } catch(e){ video.muted = true; }
+      var rec;
+      try { rec = new MediaRecorder(new MediaStream(tracks), { mimeType: mime, videoBitsPerSecond: preset.mbps * 1e6, audioBitsPerSecond: 128000 }); }
+      catch(e){ fail('This browser could not start the recorder: ' + (e.message || e)); return; }
+      job.rec = rec;
       var chunks = [];
-      rec.ondataavailable = function(e){ if (e.data.size) chunks.push(e.data); };
+      rec.ondataavailable = function(e){ if (e.data && e.data.size) chunks.push(e.data); };
       rec.onstop = function(){
-        try { video.remove(); } catch(e){}
-        var blob = new Blob(chunks, { type: 'video/webm' });
-        if (v.url && v.url.indexOf('blob:') === 0) URL.revokeObjectURL(v.url);
-        var newName = v.name.replace(/\.[^.]+$/, '') + '_compressed.webm';
-        v.fileObj = new File([blob], newName, { type: 'video/webm' });
-        v.name = newName; v.url = URL.createObjectURL(v.fileObj); v._compressed = true;
-        self.generateThumb(v.url).then(function(t){
-          v.thumb = t;
-          self.project.nodes.forEach(function(n){ if (n.video === assetId) self.createNodeElement(n); });
-          if (self.selectedNode && self.selectedNode.video === assetId) self.renderScenePreview(self.selectedNode);
-          // Same reasoning as handleVideoPick: this resolves after the
-          // saveState() below already ran, so the regenerated thumbnail needs
-          // its own save or it never reaches localStorage.
-          self.saveState();
-        });
-        self.saveState();
-        self.showStatus('Compressed: ' + newName);
+        var dur = video.duration || c.duration;
+        cleanup();
+        if (job.cancelled) { self.renderCompressSetup(); self.showStatus('Compression cancelled — original kept'); return; }
+        var blob = new Blob(chunks, { type: mime.split(';')[0] });
+        var newName = v.name.replace(/(_compressed)?\.[^.]+$/, '') + '_compressed' + ext;
+        self.renderCompressResult(v, new File([blob], newName, { type: blob.type }), { w: w, h: hgt, duration: dur });
       };
-      var drawFrame = function(){ if (video.paused || video.ended) return; ctx.drawImage(video,0,0,canvas.width,canvas.height); requestAnimationFrame(drawFrame); };
-      video.addEventListener('play', function(){ rec.start(); drawFrame(); }, { once:true });
-      video.addEventListener('ended', function(){ rec.stop(); });
-      self.showStatus('Compressing ' + v.name + '… this takes as long as the clip. (Native-quality transcode is a known follow-up — see STATUS.md.)');
+      var draw = function(){
+        if (job.cancelled || video.ended) return;
+        try { ctx.drawImage(video, 0, 0, w, hgt); } catch(e){}
+        var p = video.duration ? video.currentTime / video.duration : 0;
+        var bar = document.getElementById('cmpBar'), lab = document.getElementById('cmpLabel');
+        if (bar) bar.style.width = (p * 100).toFixed(1) + '%';
+        if (lab) lab.textContent = 'Compressing… ' + Math.round(p * 100) + '% · about ' + fmtTime(Math.max(0, (video.duration || 0) - video.currentTime), true) + ' left';
+        if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(draw); else requestAnimationFrame(draw);
+      };
+      video.addEventListener('play', function(){ rec.start(1000); draw(); }, { once: true });
+      video.addEventListener('ended', function(){ try { ctx.drawImage(video, 0, 0, w, hgt); } catch(e){} setTimeout(function(){ if (rec.state !== 'inactive') rec.stop(); }, 150); });
       video.currentTime = 0;
-      video.play().catch(function(){ alert('Could not start compression playback.'); try { video.remove(); } catch(e){} });
+      video.play().catch(function(){ fail('Could not start playing the clip for compression.'); });
     });
-    video.addEventListener('error', function(){ alert('Could not load this video for compression.'); try { video.remove(); } catch(e){} });
+  },
+  renderCompressResult: function(v, file, info){
+    var self = this, c = this._cmp;
+    var beforeRate = c.duration ? c.size * 8 / c.duration : 0;
+    var afterRate = info.duration ? file.size * 8 / info.duration : 0;
+    var smaller = file.size < c.size;
+    var pct = c.size ? Math.round((1 - file.size / c.size) * 100) : 0;
+    var h = '<div class="sub">' + (smaller
+      ? 'Done — the new file is <b>' + pct + '% smaller</b>.'
+      : '<span style="color:var(--red)">The compressed file is not smaller than the original</span> — the original is already efficient. Keeping the original is recommended.') + '</div>';
+    h += '<table class="cmp-table"><tr><th></th><th>Before</th><th>After</th></tr>' +
+      '<tr><td>Size</td><td>' + this._fmtMB(c.size) + '</td><td class="' + (smaller ? 'good' : '') + '">' + this._fmtMB(file.size) + '</td></tr>' +
+      '<tr><td>Bitrate</td><td>' + this._fmtRate(beforeRate) + '</td><td>' + this._fmtRate(afterRate) + '</td></tr>' +
+      '<tr><td>Resolution</td><td>' + c.w + '×' + c.h + '</td><td>' + info.w + '×' + info.h + '</td></tr>' +
+      '<tr><td>Format</td><td>' + esc((v.name.split('.').pop() || '').toUpperCase()) + '</td><td>' + esc((file.name.split('.').pop() || '').toUpperCase()) + '</td></tr></table>';
+    h += '<div class="explain"><b>Where does it go?</b> If you keep it, the compressed video replaces the original <i>inside this project</i> (saved in this browser) and is what goes into your exported .zip. Nothing is written to your computer\'s folders unless you click “Download”.</div>';
+    h += '<div class="btn-row"><button class="btn secondary" id="cmpDl">' + icon('download', 13) + ' Download</button><button class="btn secondary" id="cmpKeepOrig">Keep original</button><button class="btn" id="cmpUse">Use compressed</button></div>';
+    var body = document.getElementById('compressBody');
+    body.innerHTML = h;
+    var dlUrl = URL.createObjectURL(file);
+    document.getElementById('cmpDl').onclick = function(){ var a = document.createElement('a'); a.href = dlUrl; a.download = file.name; document.body.appendChild(a); a.click(); a.remove(); };
+    document.getElementById('cmpKeepOrig').onclick = function(){ URL.revokeObjectURL(dlUrl); document.getElementById('compressModal').classList.remove('show'); self.showStatus('Original kept'); };
+    document.getElementById('cmpUse').onclick = function(){
+      URL.revokeObjectURL(dlUrl);
+      if (v.url && v.url.indexOf('blob:') === 0) { try { URL.revokeObjectURL(v.url); } catch(e){} }
+      if (!v.originalName) v.originalName = v.name;
+      v.fileObj = file; v.name = file.name; v.url = URL.createObjectURL(file); v._compressed = true;
+      self.storeAsset(v);
+      document.getElementById('compressModal').classList.remove('show');
+      self.saveState();
+      self.project.nodes.forEach(function(n){ if (n.video === v.id) self.createNodeElement(n); });
+      if (self.selectedNode && self.selectedNode.video === v.id) { POV.forceReload(); self.renderScenePreview(self.selectedNode); self.refreshOpenEditor(); }
+      self.generateThumb(v.url).then(function(t){
+        if (!t) return;
+        v.thumb = t;
+        self.project.nodes.forEach(function(n){ if (n.video === v.id) self.createNodeElement(n); });
+        self.saveState();
+      });
+      self.showStatus('Now using the compressed video (' + self._fmtMB(file.size) + ')');
+    };
   },
 
   // -------------------------------------------------------- card grid ----
@@ -1543,6 +2223,7 @@ var App = {
       self.renderPins(node);
     };
     this.wireEditorInputs(node);
+    if (POV.active && POV.node === node) POV.buildMarkers();
   },
 
   // Generic delegate: any input inside .editor with data-bind="node.<prop>" or
@@ -1572,22 +2253,49 @@ var App = {
     });
   },
 
+  // Small shared field builders for the editors below.
+  _angleSliders: function(o, onInput, onChange, pitchMin, pitchMax){
+    var yaw = Math.round(isFinite(o.yaw) ? o.yaw : 0), pitch = Math.round(isFinite(o.pitch) ? o.pitch : 0);
+    return '<div class="f-row">' +
+      '<div class="f-slider"><div class="lb"><span>Left / right (°)</span><span data-echo>' + yaw + '</span></div><input type="range" min="-180" max="180" step="1" value="' + yaw + '" oninput="this.previousElementSibling.querySelector(\'[data-echo]\').textContent=this.value;' + onInput('yaw') + '" onchange="' + onChange('yaw') + '"></div>' +
+      '<div class="f-slider"><div class="lb"><span>Down / up (°)</span><span data-echo>' + pitch + '</span></div><input type="range" min="' + pitchMin + '" max="' + pitchMax + '" step="1" value="' + pitch + '" oninput="this.previousElementSibling.querySelector(\'[data-echo]\').textContent=this.value;' + onInput('pitch') + '" onchange="' + onChange('pitch') + '"></div>' +
+      '</div>';
+  },
+  _nowBtn: function(onclick){
+    return POV.active ? '<button class="now-btn" title="Use the current time from the video view above" onclick="' + onclick + '">' + icon('clock', 11) + ' now</button>' : '';
+  },
+  _placeHint: function(){
+    return POV.active ? '<div class="explain">Tip: drag it around directly in the view above — what you see there is what the learner sees.</div>' : '';
+  },
+
   buildSceneEditor: function(node){
     var asset = node.video ? this.project.assets.videos.find(function(v){ return v.id === node.video; }) : null;
     var h = '';
     h += '<div class="subhead">Playback</div>';
-    h += '<div class="f-row">';
-    h += '<div class="f-field"><label>' + (node.type==='end' ? 'Completion duration (sec)' : 'Duration (sec)') + '</label><input type="number" min="0" value="' + node.duration + '" data-node-prop="duration"></div>';
-    if (node.type !== 'end') {
-      h += '<div class="f-field"><label>Transition to next</label><select data-node-prop="transition"><option value="smooth"' + (node.transition!=='direct'?' selected':'') + '>Smooth (fade)</option><option value="direct"' + (node.transition==='direct'?' selected':'') + '>Direct (instant cut)</option></select></div>';
+    if (node.type === 'end') {
+      h += '<div class="f-row"><div class="f-field"><label>Show end screen for (sec)</label><input type="number" min="0" value="' + node.duration + '" data-node-prop="duration"></div></div>';
+      h += '<div class="explain">How long the end screen stays up before the scenario finishes and fades out.</div>';
+    } else if (asset) {
+      var len = asset.duration || 0;
+      h += '<div class="explain" style="margin-top:0"><b>Scene length: ' + (len ? fmtTime(len) : 'unknown until the video loads') + '</b> — a video scene always plays its video (or the trimmed part below), then moves on. There is no separate duration to set.</div>';
+      h += '<div class="f-row">';
+      h += '<div class="f-field"><label>Trim — start at (sec)</label><input type="number" min="0" step="0.1" value="' + (node.trimStart || 0) + '" data-node-prop="trimStart"></div>' + this._nowBtn("App.setNodeTimeNow('trimStart')");
+      h += '<div class="f-field"><label>Trim — end at (sec, 0 = video end)</label><input type="number" min="0" step="0.1" value="' + (node.trimEnd || 0) + '" data-node-prop="trimEnd"></div>' + this._nowBtn("App.setNodeTimeNow('trimEnd')");
+      h += '</div>';
+      h += '<div class="explain">Trim skips the beginning and/or cuts the end of the clip during playback — the file itself is not changed. Times for texts, media and waypoints are always the video\'s own time.</div>';
+    } else {
+      h += '<div class="f-row"><div class="f-field"><label>Duration (sec)</label><input type="number" min="0" value="' + node.duration + '" data-node-prop="duration"></div></div>';
+      h += '<div class="explain">Only used while this scene has <b>no video</b>: how long it stays on screen before moving on. Once a video is added, the video\'s own length is used.</div>';
     }
-    h += '</div>';
-
     if (node.type !== 'end') {
       h += '<div class="f-row">';
-      h += '<div class="f-slider"><div class="lb"><span>Fade in (sec)</span><span data-echo>' + (node.fadeIn||0) + '</span></div><input type="range" min="0" max="5" step="0.5" value="' + (node.fadeIn||0) + '" data-node-prop="fadeIn"></div>';
-      h += '<div class="f-slider"><div class="lb"><span>Fade out (sec)</span><span data-echo>' + (node.fadeOut||0) + '</span></div><input type="range" min="0" max="5" step="0.5" value="' + (node.fadeOut||0) + '" data-node-prop="fadeOut"></div>';
+      h += '<div class="f-field"><label>Transition to next</label><select data-node-prop="transition"><option value="smooth"' + (node.transition!=='direct'?' selected':'') + '>Smooth (short fade through black)</option><option value="direct"' + (node.transition==='direct'?' selected':'') + '>Direct (instant cut)</option></select></div>';
       h += '</div>';
+      h += '<div class="f-row">';
+      h += '<div class="f-slider"><div class="lb"><span>Fade in from black (sec)</span><span data-echo>' + (node.fadeIn||0) + '</span></div><input type="range" min="0" max="5" step="0.5" value="' + (node.fadeIn||0) + '" data-node-prop="fadeIn"></div>';
+      h += '<div class="f-slider"><div class="lb"><span>Fade out to black (sec)</span><span data-echo>' + (node.fadeOut||0) + '</span></div><input type="range" min="0" max="5" step="0.5" value="' + (node.fadeOut||0) + '" data-node-prop="fadeOut"></div>';
+      h += '</div>';
+      h += '<div class="explain">Fade in: the scene starts black and fades up over this many seconds. Fade out: the last seconds of the scene fade to black (not while a question is waiting for an answer). 0 = off.</div>';
 
       h += '<div class="subhead">Video</div>';
       if (asset) {
@@ -1595,15 +2303,17 @@ var App = {
         h += '<div class="f-field"><label>Projection</label><select data-asset-prop="projection"><option value="360"' + (asset.projection!=='180'?' selected':'') + '>360°</option><option value="180"' + (asset.projection==='180'?' selected':'') + '>180°</option></select></div>';
         h += '<div class="f-field"><label>Stereo mode</label><select data-asset-prop="stereo"><option value="mono"' + (!asset.stereo||asset.stereo==='mono'?' selected':'') + '>Mono</option><option value="sbs"' + (asset.stereo==='sbs'?' selected':'') + '>3D — side by side</option><option value="tb"' + (asset.stereo==='tb'?' selected':'') + '>3D — top/bottom</option></select></div>';
         h += '</div>';
-        h += '<div class="f-row"><div class="f-slider"><div class="lb"><span>Start position (yaw °)</span><span data-echo>' + (node.startYaw||0) + '</span></div><input type="range" min="0" max="359" value="' + (node.startYaw||0) + '" data-node-prop="startYaw"></div></div>';
-        h += '<div class="f-row"><button class="btn secondary mini" style="width:100%" onclick="App.compressVideo(\'' + asset.id + '\')">' + icon('compress',13) + ' Compress this video</button></div>';
+        h += '<div class="f-row"><div class="f-slider"><div class="lb"><span>Start direction (°)</span><span data-echo>' + (node.startYaw||0) + '</span></div><input type="range" min="0" max="359" value="' + (node.startYaw||0) + '" data-node-prop="startYaw"></div></div>';
+        h += '<div class="explain"><b>Start direction</b> = which way the learner is facing when this scene begins, whichever way their head happens to point. Easiest: look around in the view above until it shows what the learner should see first, then click <b>“Set start view here”</b>. The green START VIEW mark shows the current setting.</div>';
+        h += '<div class="f-row"><button class="btn secondary mini" style="width:100%" onclick="App.openCompress(\'' + asset.id + '\')">' + icon('compress',13) + ' Compress this video…</button></div>';
+      } else if (node.video) {
+        h += '<div style="font-size:12px;color:var(--muted)">The video file is not on this computer — re-attach it in the view above.</div>';
       } else {
         h += '<div style="font-size:12px;color:var(--muted)">No video attached — use the preview above.</div>';
       }
 
       h += '<div class="subhead">Default next scene</div>';
       h += '<div class="f-row"><select data-node-prop="defaultNext" style="width:100%"><option value="">None (end scenario)</option>';
-      this.project.nodes.forEach(function(n){ if (n.id !== node.id) h += ''; });
       var opts = this.project.nodes.filter(function(n){ return n.id !== node.id; }).map(function(n){ return '<option value="'+n.id+'"'+(node.defaultNext===n.id?' selected':'')+'>'+esc(n.title)+'</option>'; }).join('');
       h += opts + '</select></div>';
 
@@ -1612,10 +2322,17 @@ var App = {
       }
     }
     h += '<div class="f-row" style="margin-top:14px;gap:8px">';
+    if (node.type !== 'end') h += '<button class="btn secondary mini" style="flex:1" onclick="App.openPreview({nodeId:App.selectedNode.id, single:true})">' + icon('play',13) + ' Preview this scene</button>';
     h += '<button class="btn secondary mini" style="flex:1" onclick="App.duplicateNode()">' + icon('copy',13) + ' Duplicate</button>';
     h += '<button class="btn secondary mini" style="flex:1;color:var(--red)" onclick="App.deleteNode()">' + icon('trash',13) + ' Delete</button>';
     h += '</div>';
     return h;
+  },
+  setNodeTimeNow: function(prop){
+    if (!this.selectedNode || !POV.active) return;
+    this.updateNode(prop, Math.round(POV.currentTime() * 10) / 10);
+    this.refreshOpenEditor();
+    this.saveState();
   },
 
   buildWaypointEditor: function(node){
@@ -1625,40 +2342,64 @@ var App = {
       var targetOpts = self.project.nodes.filter(function(n){ return n.id !== node.id; })
         .map(function(n){ return `<option value="${n.id}"${wp.target===n.id?' selected':''}>${esc(n.title)}</option>`; }).join('');
       h += `<div class="item-row">
-        <div class="item-row-top"><div class="main"><div class="t1">${esc(wp.label || ('Waypoint ' + (i+1)))}</div><div class="t2">at ${wp.time||0}s</div></div>
-        <button class="rm" onclick="App.removeWaypoint(${i})">${icon('x',14)}</button></div>
+        <div class="item-row-top"><div class="main"><div class="t1">${i+1}. ${esc(wp.label || ('Waypoint ' + (i+1)))}</div><div class="t2">at ${fmtTime(wp.time||0)} · ${wp.target ? 'jumps to “' + esc((self.project.nodes.find(function(n){return n.id===wp.target;})||{}).title||'?') + '”' : '<span style="color:var(--red)">no target scene yet</span>'}</div></div>
+        <button class="rm" onclick="App.removeWaypoint(${i})" title="Remove waypoint">${icon('x',14)}</button></div>
         <div class="f-row"><div class="f-field grow"><label>Label</label><input type="text" value="${esc(wp.label||'')}" onchange="App.updateWaypoint(${i},'label',this.value)"></div></div>
         <div class="f-row">
           <div class="f-field"><label>Jump to</label><select onchange="App.updateWaypoint(${i},'target',this.value)"><option value="">Select scene…</option>${targetOpts}</select></div>
-          <div class="f-field"><label>Appears at (sec)</label><input type="number" min="0" step="0.5" value="${wp.time||0}" onchange="App.updateWaypoint(${i},'time',this.value)"></div>
+          <div class="f-field"><label>Appears at (sec)</label><input type="number" min="0" step="0.1" value="${wp.time||0}" onchange="App.updateWaypoint(${i},'time',this.value)"></div>
+          ${self._nowBtn('App.updateWaypoint(' + i + ',\'time\',Math.round(POV.currentTime()*10)/10)')}
           <div class="f-field"><label>Visible for (sec)</label><input type="number" min="0" step="0.5" value="${wp.duration!==undefined?wp.duration:6}" onchange="App.updateWaypoint(${i},'duration',this.value)"></div>
         </div>
+        ${self._angleSliders(wp, function(p){ return 'App.liveAngle(\'waypoint\',' + i + ',\'' + p + '\',this.value)'; }, function(p){ return 'App.updateWaypoint(' + i + ',\'' + p + '\',this.value)'; }, -85, 85)}
+        <div class="f-row"><label class="f-checkbox"><input type="checkbox"${wp.floor?' checked':''} onchange="App.updateWaypoint(${i},'floor',this.checked)"> Lie flat on the floor (like a spot to step to)</label></div>
       </div>`;
     });
-    h += `<button class="add-row" onclick="App.startPlacingWaypoint()">${icon('plus',13)} Tap the video preview to place a waypoint</button>`;
+    h += `<button class="add-row" onclick="App.startPlacingWaypoint()">${icon('plus',13)} ${POV.active ? 'Add waypoint — then click the spot in the view above' : 'Tap the video preview to place a waypoint'}</button>`;
+    if (POV.active) h += '<div class="explain">Move to the right moment with the timeline first — the waypoint appears from that time. Place it low on the floor where the learner should “walk to”; it then lies flat automatically. Drag it in the view to adjust.</div>';
     return h;
   },
   startPlacingWaypoint: function(){
     this.placingWaypoint = true;
     this.renderPins(this.selectedNode);
-    this.showStatus('Tap anywhere on the video preview above to place the waypoint');
+    this.showStatus(POV.active ? 'Click the spot in the view where the waypoint should be' : 'Tap anywhere on the video preview above to place the waypoint');
   },
-  addWaypoint: function(x, y){
+  addWaypoint: function(pos){
     if (!this.selectedNode) return;
+    pos = pos || {};
     if (!this.selectedNode.waypoints) this.selectedNode.waypoints = [];
-    this.selectedNode.waypoints.push({ label: '', target: '', time: 0, duration: 6, x: x!==undefined?x:50, y: y!==undefined?y:50 });
+    var yaw = Math.round(wrapYaw(pos.yaw || 0) * 10) / 10, pitch = Math.round(num(pos.pitch, 0, -85, 85) * 10) / 10;
+    this.selectedNode.waypoints.push({ label: '', target: '', time: pos.time || 0, duration: 6, yaw: yaw, pitch: pitch, x: yawToX(yaw), y: pitchToY(pitch), floor: pitch <= -15 });
     this.createNodeElement(this.selectedNode);
     this.saveState();
+    POV.buildMarkers();
   },
   updateWaypoint: function(idx, prop, value){
     var wps = this.selectedNode && this.selectedNode.waypoints;
     if (!wps || !wps[idx]) return;
-    if (['time','duration','x','y'].indexOf(prop) !== -1) value = parseFloat(value) || 0;
+    if (['time','duration','x','y','yaw','pitch'].indexOf(prop) !== -1) value = parseFloat(value) || 0;
+    if (prop === 'floor') value = !!value;
     wps[idx][prop] = value;
+    if (prop === 'yaw' || prop === 'pitch') this._syncXY(wps[idx]);
     this.createNodeElement(this.selectedNode);
     this.updateConnections();
     this.refreshOpenEditor();
     this.saveState();
+    POV.buildMarkers();
+  },
+  _syncXY: function(o){
+    o.yaw = wrapYaw(o.yaw); o.x = yawToX(o.yaw); o.y = pitchToY(o.pitch || 0);
+  },
+  // Live (while a slider is being dragged): move the item in the POV view
+  // without rebuilding the editor; the slider's change event commits it.
+  liveAngle: function(type, idx, prop, value){
+    var n = this.selectedNode; if (!n) return;
+    var o = type === 'waypoint' ? (n.waypoints||[])[idx] : type === 'text' ? (n.textOverlays||[])[idx] : type === 'image' ? (n.imageOverlays||[])[idx] : null;
+    if (type === 'question') { n[prop === 'yaw' ? 'questionYaw' : 'questionPitch'] = parseFloat(value) || 0; POV.buildMarkers(); return; }
+    if (!o) return;
+    o[prop] = parseFloat(value) || 0;
+    this._syncXY(o);
+    POV.buildMarkers();
   },
   removeWaypoint: function(idx){
     if (!this.selectedNode || !this.selectedNode.waypoints) return;
@@ -1671,14 +2412,16 @@ var App = {
   },
 
   buildTextEditor: function(node){
+    var self = this;
     var h = '';
     (node.textOverlays || []).forEach(function(t, i){
       h += `<div class="item-row">
-        <div class="item-row-top"><div class="main"><div class="t1">${esc((t.text||'').slice(0,40) || '(empty)')}</div><div class="t2">${t.time||0}s · ${t.duration!==undefined?t.duration:3}s</div></div>
+        <div class="item-row-top"><div class="main"><div class="t1">${esc((t.text||'').slice(0,40) || '(empty)')}</div><div class="t2">${fmtTime(t.time||0)} · for ${t.duration!==undefined?t.duration:3}s</div></div>
         <button class="rm" onclick="App.removeOverlay('text',${i})">${icon('x',14)}</button></div>
         <div class="f-row"><div class="f-field grow"><label>Text</label><textarea onchange="App.updateOverlay('text',${i},'text',this.value)">${esc(t.text||'')}</textarea></div></div>
         <div class="f-row">
-          <div class="f-field"><label>Start (sec)</label><input type="number" step="0.5" min="0" value="${t.time||0}" onchange="App.updateOverlay('text',${i},'time',this.value)"></div>
+          <div class="f-field"><label>Start (sec)</label><input type="number" step="0.1" min="0" value="${t.time||0}" onchange="App.updateOverlay('text',${i},'time',this.value)"></div>
+          ${self._nowBtn('App.updateOverlay(\'text\',' + i + ',\'time\',Math.round(POV.currentTime()*10)/10)')}
           <div class="f-field"><label>Duration (sec)</label><input type="number" step="0.5" min="0" value="${t.duration!==undefined?t.duration:3}" onchange="App.updateOverlay('text',${i},'duration',this.value)"></div>
           <div class="f-color"><label>Background</label><div class="sw-row"><input type="color" value="${t.color||'#ffffff'}" onchange="App.updateOverlay('text',${i},'color',this.value)"><span class="hex">${t.color||'#ffffff'}</span></div></div>
           <div class="f-color"><label>Text colour</label><div class="sw-row"><input type="color" value="${t.textColor||'#000000'}" onchange="App.updateOverlay('text',${i},'textColor',this.value)"><span class="hex">${t.textColor||'#000000'}</span></div></div>
@@ -1696,36 +2439,42 @@ var App = {
                settable thing rather than an unreachable default. -->
           <div class="f-slider grow"><div class="lb"><span>Background opacity</span><span data-echo>${t.bgAlpha!==undefined?t.bgAlpha:90}%</span></div><input type="range" min="10" max="100" step="5" value="${t.bgAlpha!==undefined?t.bgAlpha:90}" oninput="this.previousElementSibling.querySelector('[data-echo]').textContent=this.value+'%'" onchange="App.updateOverlay('text',${i},'bgAlpha',this.value)"></div>
         </div>
+        ${self._angleSliders(t, function(p){ return 'App.liveAngle(\'text\',' + i + ',\'' + p + '\',this.value)'; }, function(p){ return 'App.updateOverlay(\'text\',' + i + ',\'' + p + '\',this.value)'; }, -85, 85)}
         <div class="f-row">
-          <div class="f-slider"><div class="lb"><span>Pos X</span><span data-echo>${t.x!==undefined?t.x:50}</span></div><input type="range" min="0" max="100" value="${t.x!==undefined?t.x:50}" oninput="this.previousElementSibling.querySelector('[data-echo]').textContent=this.value" onchange="App.updateOverlay('text',${i},'x',this.value)"></div>
-          <div class="f-slider"><div class="lb"><span>Pos Y</span><span data-echo>${t.y!==undefined?t.y:50}</span></div><input type="range" min="0" max="100" value="${t.y!==undefined?t.y:50}" oninput="this.previousElementSibling.querySelector('[data-echo]').textContent=this.value" onchange="App.updateOverlay('text',${i},'y',this.value)"></div>
           <div class="f-slider"><div class="lb"><span>Size</span><span data-echo>${t.scale!==undefined?t.scale:1}</span></div><input type="range" min="0.5" max="3" step="0.1" value="${t.scale!==undefined?t.scale:1}" oninput="this.previousElementSibling.querySelector('[data-echo]').textContent=this.value" onchange="App.updateOverlay('text',${i},'scale',this.value)"></div>
         </div>
       </div>`;
     });
-    h += `<button class="add-row" onclick="App.addOverlay('text')">${icon('plus',13)} Add text overlay</button>`;
+    h += `<button class="add-row" onclick="App.addOverlay('text')">${icon('plus',13)} Add text overlay${POV.active ? ' where you are looking' : ''}</button>`;
+    h += this._placeHint();
     return h;
   },
   buildImageEditor: function(node){
     var self = this;
     var h = '';
     (node.imageOverlays || []).forEach(function(io, i){
-      var asset = self.project.assets.images.find(function(a){ return a.id === io.imageId; });
+      var isVid = io.kind === 'video';
+      var asset = isVid ? self.project.assets.videos.find(function(a){ return a.id === io.videoId; })
+                        : self.project.assets.images.find(function(a){ return a.id === io.imageId; });
+      var missing = asset && !asset.url;
       h += `<div class="item-row">
-        <div class="item-row-top"><div class="main"><div class="t1">${esc(asset ? asset.name : 'No image')}</div><div class="t2">${io.time||0}s · ${io.duration!==undefined?io.duration:5}s</div></div>
+        <div class="item-row-top"><span style="display:flex;color:var(--muted)">${icon(isVid ? 'video' : 'image', 14)}</span><div class="main"><div class="t1">${esc(asset ? asset.name : (isVid ? 'No video' : 'No image'))}${missing ? ' <span style="color:var(--red);font-weight:700">· missing on this computer</span>' : ''}</div><div class="t2">${isVid ? 'Video' : 'Image'} · ${fmtTime(io.time||0)} · for ${io.duration!==undefined?io.duration:5}s</div></div>
+        ${missing ? `<button class="now-btn" style="align-self:center" onclick="App.startRelink('${isVid ? 'videos' : 'images'}','${asset.id}')">Re-attach</button>` : ''}
         <button class="rm" onclick="App.removeOverlay('image',${i})">${icon('x',14)}</button></div>
         <div class="f-row">
-          <div class="f-field"><label>Start (sec)</label><input type="number" step="0.5" min="0" value="${io.time||0}" onchange="App.updateOverlay('image',${i},'time',this.value)"></div>
+          <div class="f-field"><label>Start (sec)</label><input type="number" step="0.1" min="0" value="${io.time||0}" onchange="App.updateOverlay('image',${i},'time',this.value)"></div>
+          ${self._nowBtn('App.updateOverlay(\'image\',' + i + ',\'time\',Math.round(POV.currentTime()*10)/10)')}
           <div class="f-field"><label>Duration (sec)</label><input type="number" step="0.5" min="0" value="${io.duration!==undefined?io.duration:5}" onchange="App.updateOverlay('image',${i},'duration',this.value)"></div>
         </div>
+        ${isVid ? `<div class="f-row"><label class="f-checkbox"><input type="checkbox"${io.muted?' checked':''} onchange="App.updateOverlay('image',${i},'muted',this.checked)"> Mute this clip</label><label class="f-checkbox"><input type="checkbox"${io.loop?' checked':''} onchange="App.updateOverlay('image',${i},'loop',this.checked)"> Loop while visible</label></div>` : ''}
+        ${self._angleSliders(io, function(p){ return 'App.liveAngle(\'image\',' + i + ',\'' + p + '\',this.value)'; }, function(p){ return 'App.updateOverlay(\'image\',' + i + ',\'' + p + '\',this.value)'; }, -85, 85)}
         <div class="f-row">
-          <div class="f-slider"><div class="lb"><span>Pos X</span><span data-echo>${io.x!==undefined?io.x:50}</span></div><input type="range" min="0" max="100" value="${io.x!==undefined?io.x:50}" oninput="this.previousElementSibling.querySelector('[data-echo]').textContent=this.value" onchange="App.updateOverlay('image',${i},'x',this.value)"></div>
-          <div class="f-slider"><div class="lb"><span>Pos Y</span><span data-echo>${io.y!==undefined?io.y:50}</span></div><input type="range" min="0" max="100" value="${io.y!==undefined?io.y:50}" oninput="this.previousElementSibling.querySelector('[data-echo]').textContent=this.value" onchange="App.updateOverlay('image',${i},'y',this.value)"></div>
           <div class="f-slider"><div class="lb"><span>Size</span><span data-echo>${io.scale!==undefined?io.scale:1}</span></div><input type="range" min="0.1" max="3" step="0.1" value="${io.scale!==undefined?io.scale:1}" oninput="this.previousElementSibling.querySelector('[data-echo]').textContent=this.value" onchange="App.updateOverlay('image',${i},'scale',this.value)"></div>
         </div>
       </div>`;
     });
-    h += `<button class="add-row" onclick="document.getElementById('imageFileInput').click()">${icon('plus',13)} Add image from computer</button>`;
+    h += `<button class="add-row" onclick="document.getElementById('imageFileInput').click()">${icon('plus',13)} Add image or video from computer</button>`;
+    h += '<div class="explain">' + (POV.active ? 'Or drag an image/video file straight onto the view above — it lands exactly where you drop it, at the current time. ' : '') + 'Videos added here play as a flat screen inside the scene (not as the 360° background).</div>';
     return h;
   },
   buildAudioEditor: function(node){
@@ -1752,7 +2501,7 @@ var App = {
     }
     h += '<div class="f-row"><div class="f-field grow"><label>Question</label><textarea data-node-prop="question">' + esc(node.question) + '</textarea></div></div>';
     h += '<div class="f-row">';
-    h += '<div class="f-field"><label>Appears at (sec)</label><input type="number" min="0" step="0.5" value="' + (node.questionTime||0) + '" data-node-prop="questionTime"></div>';
+    h += '<div class="f-field"><label>Appears at (sec)</label><input type="number" min="0" step="0.1" value="' + (node.questionTime||0) + '" data-node-prop="questionTime"></div>' + this._nowBtn("App.setNodeTimeNow('questionTime')");
     h += '<div class="f-field"><label>Gaze dwell (sec)</label><input type="number" min="0.5" max="10" step="0.1" placeholder="2.0" value="' + (node.gazeDwellSec!=null?node.gazeDwellSec:'') + '" data-node-prop="gazeDwellSec"></div>';
     h += '</div>';
     h += '<div class="f-row">';
@@ -1760,11 +2509,13 @@ var App = {
     h += '<div class="f-field"><label>Weight</label><select data-node-prop="questionFontWeight"><option value="normal"' + ((node.questionFontWeight||'700')==='normal'?' selected':'') + '>Normal</option><option value="700"' + ((node.questionFontWeight||'700')==='700'?' selected':'') + '>Bold</option></select></div>';
     h += '<div class="f-field"><label>Align</label><select data-node-prop="questionAlign"><option value="center"' + ((node.questionAlign||'center')==='center'?' selected':'') + '>Center</option><option value="left"' + ((node.questionAlign||'center')==='left'?' selected':'') + '>Left</option><option value="right"' + ((node.questionAlign||'center')==='right'?' selected':'') + '>Right</option></select></div>';
     h += '</div>';
+    h += this._angleSliders({ yaw: node.questionYaw, pitch: node.questionPitch },
+      function(p){ return 'App.liveAngle(\'question\',0,\'' + p + '\',this.value)'; },
+      function(p){ return 'App.updateNode(\'' + (p === 'yaw' ? 'questionYaw' : 'questionPitch') + '\',this.value);App.saveState()'; }, Q_PITCH_MIN, Q_PITCH_MAX);
     h += '<div class="f-row">';
-    h += '<div class="f-slider"><div class="lb"><span>Pos X</span><span data-echo>' + (node.questionX!==undefined?node.questionX:50) + '</span></div><input type="range" min="0" max="100" value="' + (node.questionX!==undefined?node.questionX:50) + '" data-node-prop="questionX"></div>';
-    h += '<div class="f-slider"><div class="lb"><span>Pos Y</span><span data-echo>' + (node.questionY!==undefined?node.questionY:50) + '</span></div><input type="range" min="0" max="100" value="' + (node.questionY!==undefined?node.questionY:50) + '" data-node-prop="questionY"></div>';
     h += '<div class="f-slider"><div class="lb"><span>Size</span><span data-echo>' + (node.questionScale!==undefined?node.questionScale:1) + '</span></div><input type="range" min="0.5" max="3" step="0.1" value="' + (node.questionScale!==undefined?node.questionScale:1) + '" data-node-prop="questionScale"></div>';
     h += '</div>';
+    h += this._placeHint();
 
     h += '<div class="subhead">Answer choices</div>';
     var self = this;
@@ -1791,6 +2542,15 @@ var App = {
     var text = document.getElementById('newQuestionText').value.trim();
     if (!text || !this.selectedNode) return;
     this.selectedNode.question = text;
+    // A new question appears where the POV view is looking (like new text),
+    // not at a fixed spot that may be behind the start direction.
+    if (POV.active && POV.node === this.selectedNode) {
+      this.selectedNode.questionYaw = Math.round(wrapYaw(POV.yaw));
+      this.selectedNode.questionPitch = Math.round(num(POV.pitch, 0, Q_PITCH_MIN, Q_PITCH_MAX));
+      this.selectedNode.questionX = yawToX(this.selectedNode.questionYaw);
+      this.selectedNode.questionY = pitchToY(this.selectedNode.questionPitch);
+      this.selectedNode.questionTime = Math.round(POV.currentTime() * 10) / 10;
+    }
     this.selectedNode.choices = [
       { id: 'c'+Date.now()+'1', label: 'Option A', correct: true, target: null, bgColor:'#0969da', textColor:'#ffffff', scale:1 },
       { id: 'c'+Date.now()+'2', label: 'Option B', correct: false, target: null, bgColor:'#0969da', textColor:'#ffffff', scale:1 }
@@ -1804,8 +2564,11 @@ var App = {
   // -------------------------------------------------------- node fields ----
   updateNode: function(prop, value, silent){
     if (!this.selectedNode) return;
-    var numeric = ['duration','questionTime','questionX','questionY','questionScale','questionFontSize','fadeIn','fadeOut','startYaw'];
+    var numeric = ['duration','questionTime','questionX','questionY','questionScale','questionFontSize','fadeIn','fadeOut','startYaw','trimStart','trimEnd','questionYaw','questionPitch'];
     if (numeric.indexOf(prop) !== -1) value = parseFloat(value) || 0;
+    if (prop === 'trimStart' || prop === 'trimEnd') value = Math.max(0, value);
+    if (prop === 'questionYaw') { value = wrapYaw(value); this.selectedNode.questionX = yawToX(value); }
+    if (prop === 'questionPitch') { value = num(value, 0, Q_PITCH_MIN, Q_PITCH_MAX); this.selectedNode.questionY = pitchToY(value); }
     else if (prop === 'gazeDwellSec') value = (value === '' || value == null) ? '' : (parseFloat(value) || '');
     this.selectedNode[prop] = value;
     if (prop === 'startYaw') {
@@ -1814,12 +2577,17 @@ var App = {
     }
     this.createNodeElement(this.selectedNode);
     if (!silent) { this.updateConnections(); this.renderScenePreview(this.selectedNode); }
+    else if (POV.active) POV.buildMarkers();
   },
   addOverlay: function(type){
     if (!this.selectedNode) return;
     if (type === 'image') { /* handled via file picker */ return; }
     if (!this.selectedNode.textOverlays) this.selectedNode.textOverlays = [];
-    this.selectedNode.textOverlays.push({ time:0, duration:3, text:'', color:'#ffffff', textColor:'#000000', bgAlpha:90, x:50, y:50, scale:1.0 });
+    // New text lands where the POV view is looking, at the current video time.
+    var live = POV.active && POV.node === this.selectedNode;
+    var yaw = live ? wrapYaw(Math.round(POV.yaw)) : 0, pitch = live ? Math.round(Math.max(-60, Math.min(60, POV.pitch))) : 0;
+    this.selectedNode.textOverlays.push({ time: live ? Math.round(POV.currentTime() * 10) / 10 : 0, duration:3, text:'', color:'#ffffff', textColor:'#000000', bgAlpha:90,
+      yaw: yaw, pitch: pitch, x: yawToX(yaw), y: pitchToY(pitch), scale:1.0 });
     this.createNodeElement(this.selectedNode);
     this.refreshOpenEditor();
     this.saveState();
@@ -1827,10 +2595,13 @@ var App = {
   updateOverlay: function(type, idx, prop, value){
     var list = type === 'image' ? this.selectedNode.imageOverlays : this.selectedNode.textOverlays;
     if (!list || !list[idx]) return;
-    if (['time','duration','x','y','scale','fontSize','bgAlpha'].indexOf(prop) !== -1) value = parseFloat(value) || 0;
+    if (['time','duration','x','y','scale','fontSize','bgAlpha','yaw','pitch'].indexOf(prop) !== -1) value = parseFloat(value) || 0;
     if (prop === 'color') value = safeColor(value, '#ffffff');
     if (prop === 'textColor') value = safeColor(value, '#000000');
+    if (prop === 'muted' || prop === 'loop') value = !!value;
     list[idx][prop] = value;
+    if (prop === 'yaw' || prop === 'pitch') this._syncXY(list[idx]);
+    POV.buildMarkers();
     this.createNodeElement(this.selectedNode);
     this.refreshOpenEditor();
     this.saveState();
@@ -1928,8 +2699,11 @@ var App = {
 
   // ------------------------------------------------------------ export ----
   openExportModal: function(){
-    var vids = this.project.assets.videos.length, imgs = this.project.assets.images.length, auds = (this.project.assets.audio||[]).length;
-    var stereoCount = this.project.assets.videos.filter(function(v){ return v.stereo && v.stereo !== 'mono'; }).length;
+    var used = this.referencedAssetIds();
+    var isUsed = function(a){ return !!used[a.id]; };
+    var vids = this.project.assets.videos.filter(isUsed).length, imgs = this.project.assets.images.filter(isUsed).length, auds = (this.project.assets.audio||[]).filter(isUsed).length;
+    var stereoCount = this.project.assets.videos.filter(function(v){ return isUsed(v) && v.stereo && v.stereo !== 'mono'; }).length;
+    var missCount = this.missingAssets().length;
     var rows = '';
     rows += '<div class="export-row"><span class="k">Project</span><span class="v">' + esc(this.project.title) + '</span></div>';
     rows += '<div class="export-row"><span class="k">Scenes</span><span class="v">' + this.project.nodes.length + '</span></div>';
@@ -1937,6 +2711,8 @@ var App = {
     if (stereoCount) rows += '<div class="export-row"><span class="k">3D / stereo clips</span><span class="v">' + stereoCount + '</span></div>';
     rows += '<div class="export-row' + (this.project.accessCode ? '' : ' warn') + '"><span class="k">Access code</span><span class="v">' + (this.project.accessCode ? esc(this.project.accessCode) : 'None — starts freely') + '</span></div>';
     if (!this.project.startNode) rows += '<div class="export-row warn"><span class="k">Start scene</span><span class="v">Not set!</span></div>';
+    if (missCount) rows += '<div class="export-row warn"><span class="k">Missing on this computer</span><span class="v">' + missCount + ' file(s) — re-attach first</span></div>';
+    rows += '<div class="explain" style="margin-top:2px">This .zip is also your <b>project file</b>: open it again with the folder icon (top left) — on this or any other computer — to keep editing. It is saved to your Downloads folder.</div>';
     document.getElementById('exportModal').querySelector('h3').innerHTML = icon('export', 16) + ' Export scenario';
     document.getElementById('exportSummary').innerHTML = rows;
     document.getElementById('exportLoaderRow').innerHTML = '';
@@ -1955,6 +2731,10 @@ var App = {
       try {
         var zip = new JSZip();
         var projectData = JSON.parse(JSON.stringify(self.project, function(k, v){ return (k==='fileObj'||k==='thumb') ? undefined : v; }));
+        // Only media a scene actually uses — a clip that was replaced (kept in
+        // the asset list so Undo can bring it back) must not bloat the .zip.
+        var used = self.referencedAssetIds();
+        ['videos','images','audio'].forEach(function(k){ if (projectData.assets[k]) projectData.assets[k] = projectData.assets[k].filter(function(a){ return used[a.id]; }); });
         projectData.assets.videos.forEach(function(v){ delete v.data; delete v.url; v.file = 'videos/' + v.id + '_' + v.name.replace(/[\\/]/g,'_'); });
         projectData.assets.images.forEach(function(i){ delete i.data; delete i.url; i.file = 'images/' + i.id + '_' + i.name.replace(/[\\/]/g,'_'); });
         (projectData.assets.audio||[]).forEach(function(a){ delete a.data; delete a.url; a.file = 'audio/' + a.id + '_' + a.name.replace(/[\\/]/g,'_'); });
@@ -1969,7 +2749,7 @@ var App = {
           try { await blob.slice(0,1).arrayBuffer(); } catch(e){ return null; }
           return blob;
         };
-        var vids = self.project.assets.videos;
+        var vids = self.project.assets.videos.filter(function(a){ return used[a.id]; });
         for (var vi=0; vi<vids.length; vi++){
           var v = vids[vi];
           setLoading('Reading video ' + (vi+1) + '/' + vids.length + ': ' + v.name);
@@ -1978,12 +2758,12 @@ var App = {
           if (vblob) { videosFolder.file(vpath, vblob); if (v.thumb && v.thumb.indexOf('base64,')>-1) videosFolder.file(vpath+'.thumb.jpg', v.thumb.split('base64,')[1], {base64:true}); }
           else missing.push(v.name);
         }
-        var imgs = self.project.assets.images;
+        var imgs = self.project.assets.images.filter(function(a){ return used[a.id]; });
         for (var ii=0; ii<imgs.length; ii++){
           var im = imgs[ii]; var iblob = await resolveBlob(im); var ipath = im.id + '_' + im.name.replace(/[\\/]/g,'_');
           if (iblob) imagesFolder.file(ipath, iblob); else missing.push(im.name);
         }
-        var auds = self.project.assets.audio || [];
+        var auds = (self.project.assets.audio || []).filter(function(a){ return used[a.id]; });
         for (var ai=0; ai<auds.length; ai++){
           var au = auds[ai]; var ablob = await resolveBlob(au); var apath = au.id + '_' + au.name.replace(/[\\/]/g,'_');
           if (ablob) audioFolder.file(apath, ablob); else missing.push(au.name);
@@ -1993,7 +2773,7 @@ var App = {
         if (total > 0 && missing.length === total) {
           loaderRow.innerHTML = '';
           document.getElementById('exportGo').disabled = false;
-          alert("None of the media could be read.\n\nThis almost always means the project was reopened after a page reload — browsers can't keep video files in memory across reloads.\n\nUse the project menu to re-open your saved .zip, then export again.");
+          alert("None of the media could be read.\n\nThe files are not stored on this computer (e.g. the project was started on another computer or the browser's storage was cleared).\n\nOpen your saved .zip with the folder icon (top left) or re-attach the files in their scenes, then export again.");
           return;
         }
 
@@ -2059,6 +2839,9 @@ var App = {
         });
 
         return Promise.all(assetPromises).then(function(){
+          // Keep the opened media in this browser too, so a refresh later
+          // doesn't lose it again.
+          ['videos','images','audio'].forEach(function(k){ (loaded.assets[k] || []).forEach(function(a){ self.storeAsset(a); }); });
           var id = 'p' + Date.now();
           self.projects.push({ id: id, title: loaded.title, project: loaded });
           self.switchProject(id);
@@ -2072,32 +2855,48 @@ var App = {
   },
 
   // ----------------------------------------------------------- preview ----
+  // The header ▶ now starts from the scene you have selected (click a scene,
+  // then ▶) — or from the start scene when nothing is selected. Inside the
+  // preview you can jump to any scene, restart, or limit it to one scene, and
+  // the scene sheet's POV view can start it at an exact point in time.
   preview: function(){
-    var startNode = this.project.nodes.find(function(n){ return n.id === this.project.startNode; }, this);
+    var sel = this.selectedNode && this.project.nodes.indexOf(this.selectedNode) !== -1 ? this.selectedNode : null;
+    var startNode = sel || this.project.nodes.find(function(n){ return n.id === this.project.startNode; }, this);
     if (!startNode) { this.showStatus('Set a start scene first'); return; }
-    if (this.previewState) this.cleanupPreviewTimers();
-    this._resetPreviewFrame();
-    this.previewState = { currentNode: startNode, history: [], videoTime: 0, overlayTimer: null, videoFailed: false };
-    document.getElementById('previewModal').style.display = 'flex';
-    document.getElementById('previewTitle').textContent = 'Preview: ' + this.project.title;
-    this.renderPreviewNode(startNode);
+    this.openPreview({ nodeId: startNode.id, single: false });
   },
   previewFromNode: function(){
     if (!this.selectedNode) return;
+    this.openPreview({ nodeId: this.selectedNode.id, single: false });
+  },
+  openPreview: function(opts){
+    opts = opts || {};
+    var node = this.project.nodes.find(function(n){ return n.id === opts.nodeId; });
+    if (!node) { this.showStatus('Set a start scene first'); return; }
+    POV.pause();
+    this._previewOpts = { nodeId: node.id, startTime: Math.max(0, parseFloat(opts.startTime) || 0), single: !!opts.single };
     if (this.previewState) this.cleanupPreviewTimers();
     this._resetPreviewFrame();
-    this.previewState = { currentNode: this.selectedNode, history: [], videoTime: 0, overlayTimer: null, videoFailed: false };
+    this.previewState = { currentNode: node, history: [], videoTime: 0, overlayTimer: null, videoFailed: false };
+    document.getElementById('previewEnd').classList.remove('show');
     document.getElementById('previewModal').style.display = 'flex';
     document.getElementById('previewTitle').textContent = 'Preview: ' + this.project.title;
-    this.renderPreviewNode(this.selectedNode);
-    this.closeSheet();
+    var sel = document.getElementById('previewSceneSelect');
+    sel.innerHTML = this.project.nodes.map(function(n){ return '<option value="' + n.id + '"' + (n.id === node.id ? ' selected' : '') + '>' + esc(n.title) + (n.type === 'end' ? ' (end)' : '') + '</option>'; }).join('');
+    document.getElementById('previewSingleChk').checked = this._previewOpts.single;
+    var miss = this.missingAssets();
+    if (miss.length) this.showStatus(miss.length + ' media file(s) missing on this computer — those scenes play without them');
+    this.renderPreviewNode(node);
+  },
+  restartPreview: function(){
+    var o = this._previewOpts || {};
+    this.openPreview({ nodeId: document.getElementById('previewSceneSelect').value || o.nodeId, startTime: o.startTime, single: document.getElementById('previewSingleChk').checked });
   },
   _resetPreviewFrame: function(){
-    var body = document.getElementById('previewPlayerFrame').parentElement;
     var old = document.getElementById('previewPlayerFrame');
     var fresh = document.createElement('iframe');
     fresh.id = 'previewPlayerFrame'; fresh.title = 'Live preview';
-    fresh.style.cssText = old.style.cssText; fresh.setAttribute('allow','autoplay');
+    fresh.style.cssText = old.style.cssText; fresh.setAttribute('allow','autoplay; fullscreen');
     old.replaceWith(fresh);
     this._previewLoaded = false;
   },
@@ -2106,7 +2905,16 @@ var App = {
     var iframe = document.getElementById('previewPlayerFrame');
     var self = this;
     if (!iframe.src) {
-      iframe.addEventListener('load', function(){ self._sendPreviewLoad(node); });
+      var triedAlt = false;
+      iframe.addEventListener('load', function(){
+        // Local copies unzipped from GitHub are named "ELaering-Player-main";
+        // if the sibling Player isn't at the usual path, try that one once.
+        try {
+          var doc = iframe.contentWindow.document;
+          if (!triedAlt && !doc.getElementById('file-input')) { triedAlt = true; iframe.src = PLAYER_PREVIEW_URL_ALT; return; }
+        } catch(e){}
+        self._sendPreviewLoad(node);
+      });
       iframe.src = PLAYER_PREVIEW_URL;
     } else if (this._previewLoaded) {
       iframe.contentWindow.postMessage({ type:'lxrPreviewGoto', nodeId: node.id }, '*');
@@ -2129,36 +2937,456 @@ var App = {
 
     // JSON-safe scenario, same shape sanitizeProject()/export produces — the
     // Player reads projection/stereo/etc. off scenario.assets.videos, while real
-    // bytes come from the separate `assets` list above via assetCache. This was
-    // previously sent as `project`/`startNodeId` fields the Player's own
-    // lxrPreviewLoad handler never actually reads (it reads `scenario`/`assets`),
-    // so the embedded preview silently never loaded anything — this is the fix.
+    // bytes come from the separate `assets` list above via assetCache.
     var scenario = JSON.parse(JSON.stringify(this.project, function(k, v){
       return (k === 'fileObj' || k === 'thumb' || k === 'url') ? undefined : v;
     }));
-    scenario.startNode = node.id; // preview always begins at whichever node the author is looking at
-
-    iframe.contentWindow.postMessage({ type: 'lxrPreviewLoad', scenario: scenario, assets: assets }, '*');
+    scenario.startNode = node.id; // preview begins at whichever node was asked for
+    var o = this._previewOpts || {};
+    iframe.contentWindow.postMessage({ type: 'lxrPreviewLoad', scenario: scenario, assets: assets,
+      startTime: o.nodeId === node.id ? (o.startTime || 0) : 0, singleScene: !!o.single }, '*');
   },
   _onPreviewFrameMessage: function(msg){
-    // The embedded Player finished a run and reverted to its own raw upload/
-    // setup screen underneath (nothing left to preview at that point) — that
-    // screen must never sit visible inside the Builder (it reads as "you have
-    // to upload your build," which defeats the entire point of previewing
-    // in-place), so close the whole panel rather than leave it showing.
-    // Matches LaerbarXR-Builder's proven handling of this exact message.
-    if (msg.type === 'lxrPreviewEnded') { this.closePreview(); }
+    if (msg.type === 'lxrPreviewNode') {
+      var sel = document.getElementById('previewSceneSelect');
+      if (sel && msg.nodeId) sel.value = msg.nodeId;
+      return;
+    }
+    // The embedded Player finished a run and reverted to its own raw upload
+    // screen underneath — that screen must never sit visible inside the
+    // Builder. Cover it with a small "finished" card (Play again / Close)
+    // instead of yanking the whole panel shut, which read as a crash.
+    if (msg.type === 'lxrPreviewEnded') {
+      var single = document.getElementById('previewSingleChk').checked;
+      document.getElementById('previewEndText').textContent = single ? 'This scene has finished.' : 'The scenario reached its end.';
+      document.getElementById('previewEnd').classList.add('show');
+    }
   },
   cleanupPreviewTimers: function(){ if (this.previewState && this.previewState.overlayTimer) clearInterval(this.previewState.overlayTimer); },
   closePreview: function(){
     this.cleanupPreviewTimers();
     document.getElementById('previewModal').style.display = 'none';
+    document.getElementById('previewEnd').classList.remove('show');
     this._resetPreviewFrame();
+  },
+
+  // -------------------------------------------------------------- help ----
+  openHelp: function(){
+    var modal = document.getElementById('helpModal');
+    modal.querySelector('h3').innerHTML = icon('help', 15) + ' Where is my work saved?';
+    var body = document.getElementById('helpBody');
+    body.innerHTML =
+      '<div><b>Automatically, in this browser on this computer</b><span>Scenes, texts, settings AND the video/image/audio files you add are saved here as you work. Nothing is uploaded — not to GitHub, not to any cloud. The website itself is only the tool.</span></div>' +
+      '<div><b>Back it up / move to another computer: Export (↑ top right)</b><span>Export saves one <b>.zip</b> to your Downloads folder. That .zip is BOTH the file learners play in the headset AND your editable project file.</span></div>' +
+      '<div><b>On a new computer (or another browser)</b><span>Open the Builder, click the <b>folder icon</b> (top left) and choose the .zip. Everything comes back, videos included. You can also re-attach single files inside a scene.</span></div>' +
+      '<div><b>Compressed videos</b><span>When you keep a compressed version it replaces the original inside the project and goes into the exported .zip. Use “Download” in the compress window if you also want the file itself.</span></div>' +
+      '<div><b>Careful</b><span>Clearing this browser\'s site data / history deletes the saved work — keep the exported .zip as your safe copy.</span></div>' +
+      '<div id="helpStorage"><span>Checking storage…</span></div>';
+    modal.classList.add('show');
+    var st = document.getElementById('helpStorage');
+    if (navigator.storage && navigator.storage.estimate) {
+      navigator.storage.estimate().then(function(e){
+        st.innerHTML = '<b>Storage used by the Builder in this browser</b><span>' + App._fmtMB(e.usage || 0) + ' of about ' + App._fmtMB(e.quota || 0) + ' available.</span>';
+      }).catch(function(){ st.remove(); });
+    } else st.remove();
   }
 };
+
+// ---------------------------------------------------------------------------
+// ---- POV — the scene's small preview as a real point-of-view -------------
+// ---------------------------------------------------------------------------
+// Replaces the flat, stretched 360° thumbnail. It renders the actual clip on
+// the same sphere/half-dome the Player uses (identical geometry and placement
+// maths), so where something sits here is where the learner sees it in the
+// headset. Drag to look around, scroll/± to zoom, timeline to move through the
+// clip; waypoints, texts, media and the question can be dragged into place,
+// and image/video files can be dropped straight onto the view.
+var POV = {
+  ready: false, active: false, failed: false,
+  node: null, asset: null, yaw: 0, pitch: 0, fov: 75, muted: true,
+  placing: null, scrubbing: false, _raf: 0, _markers: [], _geoKey: '', _src: '',
+
+  init: function(){
+    if (this.ready) return true;
+    if (this.failed || !window.THREE) return false;
+    var host = document.getElementById('povHost');
+    try {
+      this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    } catch(e){ this.failed = true; return false; }
+    var self = this;
+    this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    host.appendChild(this.renderer.domElement);
+    this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color(0x0e0e11);
+    this.camera = new THREE.PerspectiveCamera(this.fov, 16/9, 0.05, 100);
+    this.camera.rotation.order = 'YXZ';
+    this.video = document.createElement('video');
+    this.video.muted = true; this.video.playsInline = true; this.video.preload = 'auto';
+    this.texture = new THREE.VideoTexture(this.video);
+    this.texture.minFilter = THREE.LinearFilter; this.texture.magFilter = THREE.LinearFilter;
+    this.texture.colorSpace = THREE.SRGBColorSpace;
+    this.mesh = new THREE.Mesh(this.makeGeometry('360', 'mono'), new THREE.MeshBasicMaterial({ map: this.texture }));
+    this.scene.add(this.mesh);
+    this.raycaster = new THREE.Raycaster();
+    this._v = new THREE.Vector3();
+
+    this.video.addEventListener('loadedmetadata', function(){
+      if (self.asset && isFinite(self.video.duration) && self.asset.duration !== self.video.duration) {
+        self.asset.duration = self.video.duration;
+        document.getElementById('sceneMeta').textContent = self.asset.name + ' · ' + fmtTime(self.video.duration, true);
+        if (App.activeCardKey === 'scene') App.refreshOpenEditor();
+        App.persistProjects();
+      }
+      var ts = self.node ? (self.node.trimStart || 0) : 0;
+      if (self._pendingSeek != null) { self.video.currentTime = self._pendingSeek; self._pendingSeek = null; }
+      else if (ts > 0 && self.video.currentTime < ts) self.video.currentTime = ts;
+      self.syncBar();
+    });
+    this.video.addEventListener('play', function(){ self.syncBar(); });
+    this.video.addEventListener('pause', function(){ self.syncBar(); });
+    this.video.addEventListener('seeked', function(){ self.syncBar(); });
+
+    var canvas = this.renderer.domElement;
+    canvas.addEventListener('pointerdown', function(e){ self.onDown(e); });
+    canvas.addEventListener('wheel', function(e){ e.preventDefault(); self.setFov(self.fov + Math.max(-12, Math.min(12, e.deltaY * 0.04))); }, { passive: false });
+    var pv = document.getElementById('scenePreview');
+    var drop = document.getElementById('povDrop');
+    var hasFiles = function(e){ return self.active && e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types || [], 'Files') !== -1; };
+    pv.addEventListener('dragover', function(e){ if (!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; drop.classList.add('show'); });
+    pv.addEventListener('dragleave', function(e){ if (!pv.contains(e.relatedTarget)) drop.classList.remove('show'); });
+    pv.addEventListener('drop', function(e){
+      drop.classList.remove('show');
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      var d = self.dirAt(e.clientX, e.clientY);
+      App.addMediaFiles(Array.from(e.dataTransfer.files), { yaw: d.yaw, pitch: Math.max(-85, Math.min(85, d.pitch)), time: Math.round(self.currentTime() * 10) / 10 });
+    });
+    this.ready = true;
+    return true;
+  },
+
+  // Identical to the Player's makeProjectionGeometry (360 sphere / 180
+  // half-dome, inside-out). For 3D clips only the left eye is shown here.
+  makeGeometry: function(proj, stereo){
+    var geo = proj === '180'
+      ? new THREE.SphereGeometry(15, 64, 32, Math.PI, Math.PI, 0, Math.PI)
+      : new THREE.SphereGeometry(15, 64, 32, 0, Math.PI * 2, 0, Math.PI);
+    geo.scale(-1, 1, 1);
+    if (stereo === 'sbs' || stereo === 'tb') {
+      var uv = geo.attributes.uv;
+      for (var i = 0; i < uv.count; i++) {
+        if (stereo === 'sbs') uv.setX(i, uv.getX(i) * 0.5);
+        else uv.setY(i, uv.getY(i) * 0.5 + 0.5);
+      }
+      uv.needsUpdate = true;
+    }
+    return geo;
+  },
+
+  open: function(node, asset){
+    if (!this.init()) return;
+    var nodeChanged = this.node !== node;
+    this.node = node; this.asset = asset;
+    var key = (asset.projection || '360') + '|' + (asset.stereo || 'mono');
+    if (key !== this._geoKey) {
+      this.mesh.geometry.dispose();
+      this.mesh.geometry = this.makeGeometry(asset.projection, asset.stereo);
+      this._geoKey = key;
+    }
+    if (this._src !== asset.url) {
+      this._src = asset.url;
+      this.video.src = asset.url;
+      this.video.muted = this.muted;
+      this._pendingSeek = null;
+      nodeChanged = true;
+    }
+    if (nodeChanged) {
+      var sy = node.startYaw || 0;
+      this.yaw = sy > 180 ? sy - 360 : sy; this.pitch = 0; this.setFov(75);
+      this.placing = null;
+      if (this.video.readyState >= 1) this.video.currentTime = node.trimStart || 0;
+    }
+    if (!this.active) { this.active = true; this.loop(); }
+    this.buildMarkers();
+  },
+  forceReload: function(){ this._src = ''; },
+  close: function(){
+    this.active = false;
+    cancelAnimationFrame(this._raf);
+    if (this.ready) { try { this.video.pause(); } catch(e){} }
+    this.node = null;
+    this.setPlacing(null);
+    var mk = document.getElementById('povMarkers'); if (mk) mk.innerHTML = '';
+    this._markers = [];
+  },
+  pause: function(){ if (this.ready) { try { this.video.pause(); } catch(e){} } },
+  currentTime: function(){ return this.ready ? (this.video.currentTime || 0) : 0; },
+  duration: function(){ return this.ready && isFinite(this.video.duration) ? this.video.duration : 0; },
+  togglePlay: function(){
+    if (!this.ready) return;
+    var te = this.node && this.node.trimEnd || 0;
+    if (this.video.paused) {
+      if (this.video.ended || (te > 0 && this.video.currentTime >= te - 0.05)) this.video.currentTime = this.node.trimStart || 0;
+      this.video.play().catch(function(){});
+    } else this.video.pause();
+  },
+  toggleMute: function(){ this.muted = !this.muted; if (this.ready) this.video.muted = this.muted; this.syncBar(); },
+  seek: function(t){ if (!this.ready) return; if (this.video.readyState >= 1) this.video.currentTime = t; else this._pendingSeek = t; },
+  setFov: function(f){ this.fov = Math.max(30, Math.min(100, f)); if (this.camera) { this.camera.fov = this.fov; this.camera.updateProjectionMatrix(); } },
+  zoom: function(dir){ this.setFov(this.fov + dir * 10); },
+  lookAt: function(yaw, pitch){ this.yaw = yaw > 180 ? yaw - 360 : yaw; this.pitch = pitch || 0; },
+  setPlacing: function(what){
+    this.placing = what;
+    var host = document.getElementById('povHost'), hint = document.getElementById('povHint');
+    if (host) host.classList.toggle('placing', !!what);
+    if (hint) {
+      hint.textContent = what === 'waypoint' ? 'Click where the waypoint should be (appears at ' + fmtTime(this.currentTime()) + ') — Esc to cancel' : '';
+      hint.classList.toggle('show', !!what);
+    }
+  },
+
+  syncBar: function(){
+    if (!this.ready) return;
+    var play = document.getElementById('povPlay'), mute = document.getElementById('povMute'), scrub = document.getElementById('povScrub');
+    if (play) play.innerHTML = icon(this.video.paused ? 'play' : 'pause', 13);
+    if (mute) { mute.innerHTML = icon(this.muted ? 'mute' : 'volume', 13); mute.classList.toggle('on', !this.muted); }
+    if (scrub) {
+      var d = this.duration();
+      scrub.max = d || 1;
+      if (!this.scrubbing) scrub.value = this.currentTime();
+    }
+    var tl = document.getElementById('povTime');
+    if (tl) {
+      var n = this.node, trim = n && ((n.trimStart || 0) > 0 || (n.trimEnd || 0) > 0) ? ' ✂' : '';
+      tl.textContent = fmtTime(this.currentTime()) + ' / ' + fmtTime(this.duration()) + trim;
+      tl.title = trim ? 'Trimmed: plays ' + fmtTime(n.trimStart || 0) + ' – ' + (n.trimEnd ? fmtTime(n.trimEnd) : 'end') : '';
+    }
+  },
+
+  loop: function(){
+    var self = this;
+    if (!this.active) return;
+    this._raf = requestAnimationFrame(function(){ self.loop(); });
+    var host = document.getElementById('povHost');
+    var w = host.clientWidth, h = host.clientHeight;
+    if (!w || !h) return;
+    if (this._w !== w || this._h !== h) {
+      this._w = w; this._h = h;
+      this.renderer.setSize(w, h, false);
+      this.camera.aspect = w / h; this.camera.updateProjectionMatrix();
+    }
+    // Trimmed end: stop there, like the Player does.
+    var te = this.node && this.node.trimEnd || 0;
+    if (te > 0 && !this.video.paused && this.video.currentTime >= te) this.video.pause();
+    this.camera.rotation.set(THREE.MathUtils.degToRad(this.pitch), -THREE.MathUtils.degToRad(this.yaw), 0);
+    this.renderer.render(this.scene, this.camera);
+    this.positionMarkers();
+    if (!this.scrubbing && (this._tick = (this._tick || 0) + 1) % 6 === 0) this.syncBar();
+  },
+
+  // Direction (yaw right-positive, pitch up-positive, degrees) under a screen point.
+  dirAt: function(cx, cy){
+    var r = this.renderer.domElement.getBoundingClientRect();
+    var ndc = new THREE.Vector2(((cx - r.left) / r.width) * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
+    this.camera.updateMatrixWorld();
+    this.raycaster.setFromCamera(ndc, this.camera);
+    var d = this.raycaster.ray.direction;
+    return { yaw: THREE.MathUtils.radToDeg(Math.atan2(d.x, -d.z)), pitch: THREE.MathUtils.radToDeg(Math.asin(Math.max(-1, Math.min(1, d.y)))) };
+  },
+
+  onDown: function(e){
+    if (e.button !== 0) return;
+    var self = this, sx = e.clientX, sy = e.clientY, y0 = this.yaw, p0 = this.pitch, moved = false;
+    var host = document.getElementById('povHost');
+    var canvas = this.renderer.domElement;
+    try { canvas.setPointerCapture(e.pointerId); } catch(_){}
+    var move = function(ev){
+      var dx = ev.clientX - sx, dy = ev.clientY - sy;
+      if (!moved && Math.abs(dx) + Math.abs(dy) > 4) { moved = true; host.classList.add('dragging'); }
+      if (!moved) return;
+      var dpp = self.fov / (self._h || 300); // degrees per pixel
+      self.yaw = y0 - dx * dpp;
+      self.pitch = Math.max(-85, Math.min(85, p0 + dy * dpp));
+      if (self.yaw > 180) self.yaw -= 360; if (self.yaw < -180) self.yaw += 360;
+    };
+    var up = function(ev){
+      canvas.removeEventListener('pointermove', move); canvas.removeEventListener('pointerup', up); canvas.removeEventListener('pointercancel', up);
+      host.classList.remove('dragging');
+      if (!moved && self.placing === 'waypoint') {
+        var d = self.dirAt(ev.clientX, ev.clientY);
+        App.addWaypoint({ yaw: d.yaw, pitch: d.pitch, time: Math.round(self.currentTime() * 10) / 10 });
+        App.placingWaypoint = false;
+        self.setPlacing(null);
+        App.openEditor(self.node, 'waypoint');
+        App.showStatus('Waypoint placed — now choose which scene it jumps to');
+      }
+    };
+    canvas.addEventListener('pointermove', move); canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
+  },
+
+  // ---- markers (HTML elements positioned over the 3D view every frame) ----
+  buildMarkers: function(){
+    var layer = document.getElementById('povMarkers');
+    if (!layer) return;
+    layer.innerHTML = '';
+    this._markers = [];
+    if (!this.active || !this.node) return;
+    var self = this, n = this.node, app = App;
+    var add = function(m){ layer.appendChild(m.el); self._markers.push(m); if (m.draggable) self.makeDraggable(m); };
+
+    // Start view mark
+    var st = document.createElement('div');
+    st.className = 'pov-m pov-start'; st.textContent = 'START VIEW';
+    add({ el: st, get: function(){ var s = n.startYaw || 0; return { yaw: s, pitch: -3 }; }, r: 10, fixed: true });
+
+    (n.textOverlays || []).forEach(function(t, i){
+      var el = document.createElement('div');
+      el.className = 'pov-m pov-txt';
+      el.textContent = t.text || '(empty text)';
+      el.title = 'Text ' + (i+1) + ' — drag to move, click to edit';
+      add({ el: el, kind: 'text', idx: i, item: t, r: 7, draggable: true, card: 'text', t0: t.time || 0, t1: (t.time || 0) + (t.duration !== undefined ? t.duration : 3),
+        style: function(ppu){
+          var sc = t.scale || 1, fs = t.fontSize ? parseFloat(t.fontSize) : 32;
+          var k = sc * ppu / 256;
+          el.style.width = (512 * k) + 'px'; el.style.minHeight = (128 * k) + 'px';
+          el.style.fontSize = (fs * k) + 'px'; el.style.lineHeight = '1.3'; el.style.padding = (20 * k) + 'px';
+          el.style.background = hexA(t.color || '#ffffff', t.bgAlpha != null ? t.bgAlpha : 90);
+          el.style.border = Math.max(1, 3 * k) + 'px solid ' + (t.color || '#ffffff');
+          el.style.color = t.textColor || '#000'; el.style.fontWeight = t.fontWeight || 'normal';
+          el.style.textAlign = t.align || 'center'; el.style.display = 'flex'; el.style.alignItems = 'center';
+          el.style.justifyContent = t.align === 'left' ? 'flex-start' : t.align === 'right' ? 'flex-end' : 'center';
+        } });
+    });
+
+    (n.imageOverlays || []).forEach(function(io, i){
+      var isVid = io.kind === 'video';
+      var a = isVid ? app.project.assets.videos.find(function(x){ return x.id === io.videoId; }) : app.project.assets.images.find(function(x){ return x.id === io.imageId; });
+      var el = document.createElement('div');
+      el.className = 'pov-m pov-img';
+      el.title = (isVid ? 'Video ' : 'Image ') + (i+1) + ' — drag to move, click to edit';
+      var aspect = { v: isVid ? 16/9 : 1 };
+      if (a && a.url && !isVid) {
+        var img = document.createElement('img'); img.src = a.url; img.draggable = false;
+        img.onload = function(){ aspect.v = img.naturalWidth / img.naturalHeight || 1; };
+        el.appendChild(img);
+      } else if (a && a.url && isVid) {
+        var vv = document.createElement('video'); vv.src = a.url; vv.muted = true; vv.preload = 'metadata';
+        vv.onloadedmetadata = function(){ aspect.v = (vv.videoWidth / vv.videoHeight) || 16/9; try { vv.currentTime = 0.1; } catch(_){} };
+        el.appendChild(vv);
+      } else {
+        el.innerHTML = '<div class="pov-vid-ph">' + icon(isVid ? 'video' : 'image', 18) + '</div>';
+      }
+      add({ el: el, kind: 'image', idx: i, item: io, r: 7.5, draggable: true, card: 'image', t0: io.time || 0, t1: (io.time || 0) + (io.duration !== undefined ? io.duration : 5),
+        style: function(ppu){
+          var hh = 4 * (io.scale || 1) * ppu;
+          el.style.height = hh + 'px'; el.style.width = (hh * aspect.v) + 'px';
+        } });
+    });
+
+    if (n.question || (n.choices && n.choices.length)) {
+      var q = document.createElement('div');
+      q.className = 'pov-m pov-q';
+      q.title = 'Question — drag to move, click to edit';
+      add({ el: q, kind: 'question', item: n, r: 6.5, draggable: true, card: 'question', t0: n.questionTime || 0, t1: Infinity,
+        get: function(){ return { yaw: n.questionYaw || 0, pitch: n.questionPitch || 0 }; },
+        style: function(ppu){
+          var sc = n.questionScale || 1, k = ppu / 256, gap = 0.09 * ppu, h = '';
+          if (n.question) h += '<div style="width:' + (1024*k*sc) + 'px;min-height:' + (150*k*sc) + 'px;padding:' + (20*k*sc) + 'px;font-size:' + ((n.questionFontSize||50)*k*sc) + 'px;background:rgba(17,24,39,.9);color:#fff;margin-bottom:' + gap + 'px;display:flex;align-items:center;justify-content:center">' + esc(n.question) + '</div>';
+          (n.choices || []).forEach(function(c){
+            var cs = Math.max(0.85, (c.scale || 1) * sc);
+            h += '<div style="width:' + (800*k*cs) + 'px;min-height:' + (180*k*cs) + 'px;padding:' + (20*k*cs) + 'px;font-size:' + (50*k*cs) + 'px;font-weight:400;background:' + esc(c.bgColor || '#0969da') + ';color:' + esc(c.textColor || '#fff') + ';margin-bottom:' + gap + 'px;display:flex;align-items:center;justify-content:center">' + esc(c.label || '') + '</div>';
+          });
+          if (q._h !== h) { q.innerHTML = h; q._h = h; }
+        }, anchorTop: true });
+    }
+
+    (n.waypoints || []).forEach(function(w, i){
+      var el = document.createElement('div');
+      el.className = 'pov-m pov-wp';
+      el.innerHTML = icon('waypoint', 13) + '<span class="n">' + (i+1) + '</span>' + (w.label ? '<span class="cap">' + esc(w.label) + '</span>' : '');
+      el.title = 'Waypoint ' + (i+1) + (w.floor ? ' (on the floor)' : '') + ' — drag to move, click to edit';
+      add({ el: el, kind: 'waypoint', idx: i, item: w, r: 6.5, draggable: true, card: 'waypoint', fixedSize: true, t0: w.time || 0, t1: (w.time || 0) + (w.duration !== undefined ? w.duration : 6),
+        style: function(){ el.style.borderRadius = '50%'; el.dataset.floor = w.floor ? '1' : ''; } });
+    });
+    this.positionMarkers();
+  },
+
+  positionMarkers: function(){
+    if (!this._markers.length || !this.camera) return;
+    var w = this._w || 1, h = this._h || 1, t = this.currentTime();
+    var tanHalf = Math.tan(THREE.MathUtils.degToRad(this.fov) / 2);
+    var cam = this.camera;
+    cam.updateMatrixWorld();
+    var fwd = new THREE.Vector3(0, 0, -1).applyQuaternion(cam.quaternion);
+    var self = this;
+    this._markers.forEach(function(m){
+      var a = m.get ? m.get() : { yaw: m.item.yaw || 0, pitch: m.item.pitch || 0 };
+      var y = THREE.MathUtils.degToRad(a.yaw), p = THREE.MathUtils.degToRad(a.pitch);
+      var dir = self._v.set(Math.sin(y) * Math.cos(p), Math.sin(p), -Math.cos(y) * Math.cos(p));
+      if (dir.dot(fwd) < 0.05) { m.el.classList.add('hidden'); return; }
+      var pr = dir.clone().multiplyScalar(m.r).project(cam);
+      var sx = (pr.x + 1) / 2 * w, sy = (1 - pr.y) / 2 * h;
+      if (sx < -w || sx > 2 * w || sy < -h || sy > 2 * h) { m.el.classList.add('hidden'); return; }
+      m.el.classList.remove('hidden');
+      var ppu = (h / 2) / (tanHalf * m.r);
+      if (m.style) m.style(ppu);
+      m.el.classList.toggle('inactive', !m.fixed && (t < m.t0 - 0.05 || t > m.t1 + 0.05));
+      var tr = m.anchorTop ? 'translate(' + sx + 'px,' + sy + 'px) translate(-50%,0)' : 'translate(' + sx + 'px,' + sy + 'px) translate(-50%,-50%)';
+      if (m.kind === 'waypoint' && m.item.floor) tr += ' scaleY(' + Math.max(0.35, Math.abs(Math.sin(p))).toFixed(2) + ')';
+      m.el.style.transform = tr;
+    });
+  },
+
+  makeDraggable: function(m){
+    var self = this;
+    m.el.addEventListener('pointerdown', function(e){
+      if (e.button !== 0) return;
+      e.stopPropagation(); e.preventDefault();
+      var sx = e.clientX, sy = e.clientY, moved = false, wasLow = (m.item.pitch || 0) <= -15;
+      try { m.el.setPointerCapture(e.pointerId); } catch(_){}
+      var move = function(ev){
+        if (!moved && Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > 3) moved = true;
+        if (!moved) return;
+        var d = self.dirAt(ev.clientX, ev.clientY);
+        if (m.kind === 'question') {
+          m.item.questionYaw = Math.round(wrapYaw(d.yaw));
+          m.item.questionPitch = Math.round(Math.max(Q_PITCH_MIN, Math.min(Q_PITCH_MAX, d.pitch)));
+        } else {
+          m.item.yaw = Math.round(wrapYaw(d.yaw) * 10) / 10;
+          m.item.pitch = Math.round(Math.max(-85, Math.min(85, d.pitch)) * 10) / 10;
+          // Dragged from standing height down onto the floor → lies flat
+          // automatically (and back up again); an already-low waypoint keeps
+          // whatever the author chose with the checkbox.
+          if (m.kind === 'waypoint' && !wasLow) m.item.floor = m.item.pitch <= -15;
+        }
+      };
+      var up = function(){
+        m.el.removeEventListener('pointermove', move); m.el.removeEventListener('pointerup', up); m.el.removeEventListener('pointercancel', up);
+        if (moved) {
+          if (m.kind === 'question') { m.item.questionX = yawToX(m.item.questionYaw); m.item.questionY = pitchToY(m.item.questionPitch); }
+          else App._syncXY(m.item);
+          App.createNodeElement(self.node);
+          App.saveState();
+          if (App.activeCardKey === m.card) App.refreshOpenEditor();
+          self.buildMarkers();
+        } else {
+          App.openEditor(self.node, m.card);
+        }
+      };
+      m.el.addEventListener('pointermove', move); m.el.addEventListener('pointerup', up); m.el.addEventListener('pointercancel', up);
+    });
+  }
+};
+function hexA(hex, alphaPct){
+  var m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '');
+  var a = (alphaPct != null ? alphaPct : 90) / 100;
+  if (!m) return 'rgba(255,255,255,' + a + ')';
+  return 'rgba(' + parseInt(m[1], 16) + ',' + parseInt(m[2], 16) + ',' + parseInt(m[3], 16) + ',' + a + ')';
+}
 
 window.addEventListener('DOMContentLoaded', function(){ App.init(); });
 </script>
 <script src="vendor/jszip.min.js"></script>
+<script src="vendor/three.min.js"></script>
 </body>
 </html>

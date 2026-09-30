@@ -21,9 +21,17 @@ An independent client product ("E-Læring"), built to the requirements in
 
 ## What this module does
 
-- Upload 360°/180° videos and images
-- Text overlays, multiple-choice interactions, timed appearance, formatting
-- Save / reload a project (`.lxr`), export a finished scenario as a single `.zip`
+- Upload 360°/180° videos, plus images and flat video clips (the **Media** tab)
+- **POV preview** in every scene: the real clip in perspective, drag to look
+  around, zoom, a timeline to scrub, and drag-and-drop placement of waypoints,
+  texts, media and the question (files can be dropped straight onto the view)
+- Waypoints anywhere in 360°, optionally lying flat on the floor
+- Trim, fade in/out, start direction ("Set start view here"), smooth/direct cuts
+- Full preview from the selected scene / from a point in time / one scene only
+- Compression with quality presets, progress bar and before/after comparison
+- Work (including media files) is kept automatically in this browser
+  (IndexedDB) — nothing is uploaded. Export a `.zip` to back up or move to
+  another computer, and open it again with the folder icon.
 
 The exported `.zip` contains `project.json` plus `videos/` and `images/` — the
 package the **Player** reads.
@@ -35,3 +43,4 @@ Vendored — this page loads nothing from a third-party CDN.
 | File | Version | License |
 | --- | --- | --- |
 | `vendor/jszip.min.js` | JSZip 3.10.1 | MIT / GPLv3 |
+| `vendor/three.min.js` | three.js r150 (same file as the Player's) | MIT |
